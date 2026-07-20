@@ -96,6 +96,7 @@ Baselines are computed from stored sessions when a run finishes. On first startu
 - Set **`ADMIN_API_KEY`** on the server; supervisors enter it once per browser session
 - Fatigue flags automatically create notifications on the admin page (no SMS required)
 - Export session history as CSV from the admin **Sessions** tab
+- Import drivers from CSV on the admin **Drivers** tab (preview + replace/append)
 
 ## Alert configuration
 

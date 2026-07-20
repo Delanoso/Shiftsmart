@@ -1,20 +1,24 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   clearStoredAdminKey,
+  downloadDriversTemplate,
   downloadSessionsCsv,
   fetchAdminSessions,
   fetchNotifications,
   getStoredAdminKey,
+  importDriversCsv,
   markAllNotificationsRead,
   markNotificationRead,
+  previewDriversImport,
   type AdminNotification,
   type AdminSessionRow,
+  type DriverImportPreview,
   verifyAdminKey,
 } from './adminApi';
 import { useAppConfig } from './hooks/useAppConfig';
 import './index.css';
 
-type AdminTab = 'notifications' | 'sessions';
+type AdminTab = 'notifications' | 'sessions' | 'drivers';
 
 export default function AdminApp() {
   const { config } = useAppConfig();
@@ -27,6 +31,14 @@ export default function AdminApp() {
   const [sessions, setSessions] = useState<AdminSessionRow[]>([]);
   const [flaggedOnly, setFlaggedOnly] = useState(false);
   const [loading, setLoading] = useState(false);
+
+  const [csvText, setCsvText] = useState('');
+  const [csvFileName, setCsvFileName] = useState('');
+  const [replaceExisting, setReplaceExisting] = useState(true);
+  const [preview, setPreview] = useState<DriverImportPreview | null>(null);
+  const [importBusy, setImportBusy] = useState(false);
+  const [importMessage, setImportMessage] = useState('');
+  const [importError, setImportError] = useState('');
 
   const refreshNotifications = useCallback(async () => {
     if (!getStoredAdminKey()) return;
@@ -84,6 +96,71 @@ export default function AdminApp() {
     await refreshNotifications();
   }
 
+  async function handleCsvFile(file: File | null) {
+    setImportMessage('');
+    setImportError('');
+    setPreview(null);
+    if (!file) {
+      setCsvText('');
+      setCsvFileName('');
+      return;
+    }
+    const text = await file.text();
+    setCsvText(text);
+    setCsvFileName(file.name);
+  }
+
+  async function handlePreview() {
+    setImportBusy(true);
+    setImportMessage('');
+    setImportError('');
+    try {
+      const result = await previewDriversImport(csvText);
+      setPreview(result);
+      if (!result.ok) {
+        setImportError(result.errors.join(' '));
+      }
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Preview failed');
+      setPreview(null);
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
+  async function handleImport() {
+    setImportBusy(true);
+    setImportMessage('');
+    setImportError('');
+    try {
+      const result = await importDriversCsv({
+        csvText,
+        replaceExisting,
+        companyName: config.clientCompanyName || undefined,
+      });
+      if (!result.ok) {
+        setImportError(result.errors.join(' ') || 'Import failed');
+        setPreview({
+          ok: false,
+          errors: result.errors,
+          summary: result.summary,
+          preview: [],
+        });
+        return;
+      }
+      setImportMessage(
+        `Imported ${result.summary.validDrivers} drivers. Roster size: ${result.summary.finalDriverCount}.`,
+      );
+      setPreview(null);
+      setCsvText('');
+      setCsvFileName('');
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : 'Import failed');
+    } finally {
+      setImportBusy(false);
+    }
+  }
+
   return (
     <div className="app admin-app">
       <header className="header">
@@ -139,6 +216,13 @@ export default function AdminApp() {
             >
               Sessions
             </button>
+            <button
+              type="button"
+              className={tab === 'drivers' ? 'tab active' : 'tab'}
+              onClick={() => setTab('drivers')}
+            >
+              Drivers
+            </button>
           </div>
 
           {tab === 'notifications' ? (
@@ -181,7 +265,9 @@ export default function AdminApp() {
                 </ul>
               )}
             </main>
-          ) : (
+          ) : null}
+
+          {tab === 'sessions' ? (
             <main className="main card">
               <div className="admin-toolbar">
                 <h2>Session history</h2>
@@ -228,7 +314,102 @@ export default function AdminApp() {
                 </table>
               </div>
             </main>
-          )}
+          ) : null}
+
+          {tab === 'drivers' ? (
+            <main className="main card">
+              <div className="admin-toolbar">
+                <h2>Import drivers</h2>
+                <button type="button" className="link-btn" onClick={() => downloadDriversTemplate()}>
+                  Download CSV template
+                </button>
+              </div>
+              <p className="muted">
+                Upload a CSV with columns <code>clockNumber</code> and <code>name</code>. Preview first,
+                then apply to replace or append the roster.
+              </p>
+
+              <div className="import-panel">
+                <label className="file-label" htmlFor="drivers-csv">
+                  Choose CSV file
+                </label>
+                <input
+                  id="drivers-csv"
+                  type="file"
+                  accept=".csv,text/csv"
+                  onChange={(e) => handleCsvFile(e.target.files?.[0] ?? null)}
+                />
+                {csvFileName ? <p className="muted tiny">Selected: {csvFileName}</p> : null}
+
+                <label className="checkbox-inline import-option">
+                  <input
+                    type="checkbox"
+                    checked={replaceExisting}
+                    onChange={(e) => setReplaceExisting(e.target.checked)}
+                  />
+                  Replace existing roster (unchecked = append)
+                </label>
+
+                <div className="admin-toolbar-actions">
+                  <button type="button" disabled={!csvText || importBusy} onClick={handlePreview}>
+                    {importBusy ? 'Working…' : 'Preview'}
+                  </button>
+                  <button
+                    type="button"
+                    disabled={!csvText || importBusy || (preview != null && !preview.ok)}
+                    onClick={handleImport}
+                  >
+                    Apply import
+                  </button>
+                </div>
+
+                {importMessage ? <p className="success">{importMessage}</p> : null}
+                {importError ? <p className="error">{importError}</p> : null}
+
+                {preview ? (
+                  <div className="import-preview">
+                    <p className="muted tiny">
+                      Rows: {preview.summary.totalRows} · Valid: {preview.summary.validDrivers}
+                      {preview.ok ? ' · Ready to import' : ' · Fix errors before importing'}
+                    </p>
+                    {preview.errors.length > 0 ? (
+                      <ul className="error-list">
+                        {preview.errors.slice(0, 12).map((err) => (
+                          <li key={err}>{err}</li>
+                        ))}
+                        {preview.errors.length > 12 ? (
+                          <li>…and {preview.errors.length - 12} more</li>
+                        ) : null}
+                      </ul>
+                    ) : null}
+                    {preview.preview.length > 0 ? (
+                      <div className="admin-table-wrap">
+                        <table className="admin-table">
+                          <thead>
+                            <tr>
+                              <th>Clock</th>
+                              <th>Name</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {preview.preview.map((d) => (
+                              <tr key={d.clockNumber}>
+                                <td>{d.clockNumber}</td>
+                                <td>{d.name}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                        {preview.summary.validDrivers > preview.preview.length ? (
+                          <p className="muted tiny">Showing first {preview.preview.length} rows.</p>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+              </div>
+            </main>
+          ) : null}
         </>
       )}
     </div>

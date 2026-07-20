@@ -91,6 +91,72 @@ export async function downloadSessionsCsv(flaggedOnly = false) {
   URL.revokeObjectURL(url);
 }
 
+export interface DriverImportPreview {
+  ok: boolean;
+  errors: string[];
+  summary: { totalRows: number; validDrivers: number; finalDriverCount?: number };
+  preview: { clockNumber: string; name: string }[];
+}
+
+export interface DriverImportResult {
+  ok: boolean;
+  errors: string[];
+  summary: {
+    totalRows: number;
+    validDrivers: number;
+    finalDriverCount?: number;
+    replacedExisting?: boolean;
+  };
+  companyId?: string;
+  companyName?: string;
+}
+
+export async function downloadDriversTemplate() {
+  const res = await adminFetch('/api/admin/drivers/template.csv');
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'drivers-template.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export async function previewDriversImport(csvText: string): Promise<DriverImportPreview> {
+  const res = await adminFetch('/api/admin/drivers/import/preview', {
+    method: 'POST',
+    body: JSON.stringify({ csvText }),
+  });
+  return res.json();
+}
+
+export async function importDriversCsv(payload: {
+  csvText: string;
+  replaceExisting: boolean;
+  companyName?: string;
+}): Promise<DriverImportResult> {
+  const key = getStoredAdminKey();
+  const headers = new Headers({ 'Content-Type': 'application/json' });
+  if (key) headers.set('X-Admin-Key', key);
+
+  const res = await fetch('/api/admin/drivers/import', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (res.status === 401) {
+    clearStoredAdminKey();
+    throw new Error('Invalid admin key');
+  }
+
+  const body = (await res.json().catch(() => ({}))) as DriverImportResult & { error?: string };
+  if (!res.ok && !body.errors) {
+    throw new Error(body.error ?? `Import failed (${res.status})`);
+  }
+  return body;
+}
+
 export async function verifyAdminKey(key: string) {
   setStoredAdminKey(key);
   try {

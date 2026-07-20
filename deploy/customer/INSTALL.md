@@ -131,6 +131,7 @@ Supervisors open **`/admin`** on the same server URL and sign in with `ADMIN_API
 
 - Fatigue flags create **admin notifications** automatically (no SMS required)
 - Review session history and **export CSV**
+- Import the driver roster from CSV on the **Drivers** tab (no CLI required)
 
 ## 7. Updates (new version from Delano Solutions)
 
