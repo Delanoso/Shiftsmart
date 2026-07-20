@@ -4,6 +4,12 @@ import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { sendSupervisorAlert } from './alert.js';
+import {
+  buildDriversCsvTemplate,
+  importDriversFromCsv,
+  parseDriversCsv,
+  readDriversFile,
+} from './drivers.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', 'data');
@@ -184,7 +190,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.get('/api/company', async (_req, res) => {
-  const data = await readJson(DRIVERS_PATH, { companyId: '', companyName: '', drivers: [] });
+  const data = await readDriversFile();
   res.json({
     companyId: data.companyId,
     companyName: data.companyName,
@@ -193,7 +199,7 @@ app.get('/api/company', async (_req, res) => {
 });
 
 app.get('/api/drivers/:clockNumber', async (req, res) => {
-  const data = await readJson(DRIVERS_PATH, { drivers: [] });
+  const data = await readDriversFile();
   const driver = data.drivers?.find((d) => d.clockNumber === req.params.clockNumber);
   if (!driver) {
     res.status(404).json({ error: 'Driver not found' });
@@ -207,7 +213,7 @@ app.get('/api/drivers/:clockNumber', async (req, res) => {
 });
 
 app.get('/api/baselines/:clockNumber', async (req, res) => {
-  const driversData = await readJson(DRIVERS_PATH, { companyId: '', drivers: [] });
+  const driversData = await readDriversFile();
   const driver = driversData.drivers?.find((d) => d.clockNumber === req.params.clockNumber);
   if (!driver) {
     res.status(404).json({ error: 'Driver not found' });
@@ -228,8 +234,51 @@ app.get('/api/baselines/:clockNumber', async (req, res) => {
   });
 });
 
+app.get('/api/admin/drivers/template.csv', (_req, res) => {
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.send(buildDriversCsvTemplate());
+});
+
+app.post('/api/admin/drivers/import/preview', async (req, res) => {
+  const { csvText } = req.body ?? {};
+  if (!csvText || typeof csvText !== 'string') {
+    res.status(400).json({ error: 'csvText is required' });
+    return;
+  }
+
+  const parsed = parseDriversCsv(csvText);
+  res.json({
+    ok: parsed.errors.length === 0,
+    errors: parsed.errors,
+    summary: parsed.summary,
+    preview: parsed.drivers.slice(0, 10),
+  });
+});
+
+app.post('/api/admin/drivers/import', async (req, res) => {
+  const { csvText, companyId, companyName, replaceExisting = true } = req.body ?? {};
+  if (!csvText || typeof csvText !== 'string') {
+    res.status(400).json({ error: 'csvText is required' });
+    return;
+  }
+
+  const result = await importDriversFromCsv({
+    csvText,
+    companyId,
+    companyName,
+    replaceExisting: Boolean(replaceExisting),
+  });
+
+  if (!result.ok) {
+    res.status(400).json(result);
+    return;
+  }
+
+  res.status(201).json(result);
+});
+
 app.post('/api/sessions', async (req, res) => {
-  const driversData = await readJson(DRIVERS_PATH, { companyId: '', drivers: [] });
+  const driversData = await readDriversFile();
   const { clockNumber, durationMs, clicks, misses, startedAt, endedAt } = req.body ?? {};
 
   if (!clockNumber || !Array.isArray(clicks)) {

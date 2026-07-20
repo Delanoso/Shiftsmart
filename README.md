@@ -25,6 +25,51 @@ Serves the built UI and API on port **3001**.
 
 Clock numbers **1001–1005** are in `data/drivers.json`. Replace or expand that file for your ~500 drivers (same JSON shape).
 
+## Bulk driver import
+
+You can now load a full roster from CSV instead of editing JSON by hand.
+
+### CSV format
+
+Required columns:
+
+```csv
+clockNumber,name
+1001,Alex Rivera
+1002,Jordan Lee
+```
+
+Download a sample template from:
+
+- `GET /api/admin/drivers/template.csv`
+
+### CLI import
+
+Replace the existing roster:
+
+```bash
+npm run import:drivers -- "/path/to/drivers.csv" --companyId=company-1 --companyName="Demo Transport Co."
+```
+
+Append to the existing roster instead of replacing:
+
+```bash
+npm run import:drivers -- "/path/to/drivers.csv" --append=true
+```
+
+### Import API
+
+- `POST /api/admin/drivers/import/preview` — validate CSV and preview first 10 rows
+- `POST /api/admin/drivers/import` — save the imported roster
+
+Example preview body:
+
+```json
+{
+  "csvText": "clockNumber,name\n1001,Alex Rivera\n1002,Jordan Lee"
+}
+```
+
 ## Data storage
 
 | File | Purpose |
@@ -60,4 +105,7 @@ Set environment variables on the server:
 - `GET /api/company` — company info  
 - `GET /api/drivers/:clockNumber` — driver lookup  
 - `GET /api/baselines/:clockNumber` — current baselines  
+- `GET /api/admin/drivers/template.csv` — CSV template for bulk driver import  
+- `POST /api/admin/drivers/import/preview` — validate CSV without saving  
+- `POST /api/admin/drivers/import` — import drivers from CSV  
 - `POST /api/sessions` — save session body: `{ clockNumber, durationMs, clicks[], misses, startedAt, endedAt }`
