@@ -233,7 +233,7 @@ export default function App() {
           </form>
           {!kioskMode ? (
             <p className="hint muted">
-              No employees loaded yet? Ask a supervisor to import the roster in Admin → Employees.
+              Not loaded on the system yet? Ask a supervisor to import the roster in Admin → Employees.
             </p>
           ) : null}
           {!kioskMode ? (
