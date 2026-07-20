@@ -3,6 +3,7 @@ import cors from 'cors';
 import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { sendSupervisorAlert } from './alert.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', 'data');
@@ -17,6 +18,9 @@ const ALERT_MARGIN_MS = Number(process.env.ALERT_MARGIN_MS ?? 150);
 
 /** Default driver baseline when there is no driver history yet */
 const DRIVER_BASELINE_START_MS = Number(process.env.DRIVER_BASELINE_START_MS ?? 550);
+
+/** Default company baseline when there is no company history yet */
+const COMPANY_BASELINE_START_MS = Number(process.env.COMPANY_BASELINE_START_MS ?? 550);
 
 /** Sessions worse than company median by this factor also trigger alert */
 const ALERT_COMPANY_FACTOR = Number(process.env.ALERT_COMPANY_FACTOR ?? 1.35);
@@ -66,8 +70,8 @@ function computeBaselines(sessions, companyId, clockNumber) {
     company: {
       sessionCount: companySessions.length,
       clickCount: companyReactionTimes.length,
-      medianReactionTimeMs: median(companyReactionTimes),
-      meanReactionTimeMs: mean(companyReactionTimes),
+      medianReactionTimeMs: median(companyReactionTimes) ?? COMPANY_BASELINE_START_MS,
+      meanReactionTimeMs: mean(companyReactionTimes) ?? COMPANY_BASELINE_START_MS,
     },
     driver: {
       sessionCount: driverSessions.length,
@@ -75,7 +79,7 @@ function computeBaselines(sessions, companyId, clockNumber) {
       // When a driver has no history yet, use a reasonable starting baseline
       // so we can still evaluate their first run.
       medianReactionTimeMs: median(driverReactionTimes) ?? DRIVER_BASELINE_START_MS,
-      meanReactionTimeMs: mean(driverReactionTimes),
+      meanReactionTimeMs: mean(driverReactionTimes) ?? DRIVER_BASELINE_START_MS,
     },
   };
 }
@@ -134,11 +138,12 @@ function evaluateSession(session, baselinesBefore) {
     sessionMeanReactionTimeMs: sessionMean,
     shouldAlert,
     alertReasons: reasons,
-    alertPhoneConfigured: Boolean(ALERT_PHONE_NUMBER),
+    // For now we treat “alert configured” as webhook or phone configured.
+    alertPhoneConfigured: Boolean(ALERT_PHONE_NUMBER || process.env.ALERT_WEBHOOK_URL),
   };
 }
 
-async function sendAlertPlaceholder(session, evaluation) {
+async function sendAlert(session, evaluation) {
   if (!evaluation.shouldAlert) return { sent: false };
   const payload = {
     to: ALERT_PHONE_NUMBER || '(not configured)',
@@ -147,14 +152,27 @@ async function sendAlertPlaceholder(session, evaluation) {
     companyId: session.companyId,
     sessionId: session.id,
     reasons: evaluation.alertReasons,
+    sessionMedianReactionTimeMs: evaluation.sessionMedianReactionTimeMs,
     at: new Date().toISOString(),
   };
+
+  // 1) Webhook (recommended for production; no code changes needed on your side)
+  const webhookConfigured = Boolean(process.env.ALERT_WEBHOOK_URL);
+  if (webhookConfigured) {
+    const result = await sendSupervisorAlert(payload);
+    if (result.sent) return { sent: true, payload, ...result };
+    // If webhook is configured but fails, return failure (UI can show it)
+    return { sent: false, placeholder: !result.sent, payload, ...result };
+  }
+
+  // 2) Phone integration not wired yet — keep a placeholder for operators
+  if (ALERT_PHONE_NUMBER) {
+    console.warn('[Fatigue Alert — placeholder phone not wired]', JSON.stringify(payload, null, 2));
+    return { sent: false, placeholder: true, payload };
+  }
+
   console.warn('[Fatigue Alert — placeholder]', JSON.stringify(payload, null, 2));
-  return {
-    sent: Boolean(ALERT_PHONE_NUMBER),
-    placeholder: !ALERT_PHONE_NUMBER,
-    payload,
-  };
+  return { sent: false, placeholder: true, payload };
 }
 
 const app = express();
@@ -250,7 +268,7 @@ app.post('/api/sessions', async (req, res) => {
   };
 
   const evaluation = evaluateSession(session, baselinesBefore);
-  const alertResult = await sendAlertPlaceholder(session, evaluation);
+  const alertResult = await sendAlert(session, evaluation);
 
   sessionsData.sessions.push(session);
   await writeJson(SESSIONS_PATH, sessionsData);

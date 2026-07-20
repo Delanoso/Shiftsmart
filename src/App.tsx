@@ -261,12 +261,15 @@ export default function App() {
                       <li key={r}>{r}</li>
                     ))}
                   </ul>
-                  {sessionResult.evaluation.alertPhoneConfigured ? (
-                    <p className="muted tiny">Supervisor alert has been sent.</p>
-                  ) : (
+                  {sessionResult.alert.sent ? (
+                    <p className="muted tiny">Supervisor alert triggered.</p>
+                  ) : sessionResult.alert.placeholder ? (
                     <p className="muted tiny">
-                      Alert placeholder logged on server — set ALERT_PHONE_NUMBER to enable SMS/call.
+                      Alert not delivered yet — configure <code>ALERT_WEBHOOK_URL</code> (recommended) or
+                      <code>ALERT_PHONE_NUMBER</code> for SMS/call.
                     </p>
+                  ) : (
+                    <p className="muted tiny">Supervisor alert configured, but delivery failed. Check server logs.</p>
                   )}
                 </div>
               ) : (

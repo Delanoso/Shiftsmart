@@ -34,13 +34,15 @@ Clock numbers **1001–1005** are in `data/drivers.json`. Replace or expand that
 
 Baselines (median/mean reaction time, session counts) are computed from stored sessions when a run finishes.
 
-## Alert configuration (later)
+## Alert configuration
 
 Set environment variables on the server:
 
 | Variable | Description |
 |----------|-------------|
-| `ALERT_PHONE_NUMBER` | Supervisor SMS/call destination (not wired yet — logs placeholder) |
+| `ALERT_WEBHOOK_URL` | Webhook endpoint to receive fatigue alert payloads (recommended) |
+| `ALERT_WEBHOOK_TIMEOUT_MS` | Webhook request timeout (default `3500`) |
+| `ALERT_PHONE_NUMBER` | Supervisor SMS/call destination (optional; phone integration not wired yet) |
 | `ALERT_MARGIN_MS` | Ms above personal baseline median to flag (default `150`) |
 | `ALERT_COMPANY_FACTOR` | Multiplier vs company median (default `1.35`) |
 | `POOR_REACTION_MS` | Single-click threshold (default `800`) |
