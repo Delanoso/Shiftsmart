@@ -156,7 +156,11 @@ export default function AdminApp() {
 
   useEffect(() => {
     if (!authed) return;
-    refreshNotifications().catch(() => setAuthed(false));
+    refreshNotifications().catch((err) => {
+      if (err instanceof Error && err.message === 'Invalid admin key') {
+        setAuthed(false);
+      }
+    });
     const id = window.setInterval(() => {
       refreshNotifications().catch(() => {});
     }, 8000);
@@ -466,7 +470,13 @@ export default function AdminApp() {
           <p className="eyebrow">Admin</p>
         </div>
         <div className="admin-header-actions">
-          <a className="link-btn" href="/">
+          <a
+            className="link-btn"
+            href="/"
+            onClick={() => {
+              clearStoredAdminKey();
+            }}
+          >
             Operator screen
           </a>
           {authed ? (

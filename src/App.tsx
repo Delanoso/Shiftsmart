@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchCompany, fetchEmployee, submitSession, verifyKioskExitPin } from './api';
+import { clearStoredAdminKey } from './adminApi';
 import { useAppConfig } from './hooks/useAppConfig';
 import { useCountdown } from './hooks/useCountdown';
 import { useFatigueGame } from './hooks/useFatigueGame';
@@ -60,6 +61,11 @@ export default function App() {
   const [exitPinError, setExitPinError] = useState('');
 
   const kioskMode = config.kioskMode;
+
+  useEffect(() => {
+    // Shared operator tablets: never keep an admin session open here.
+    clearStoredAdminKey();
+  }, []);
 
   const resetToLogin = useCallback(() => {
     setEmployee(null);
