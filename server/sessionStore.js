@@ -5,7 +5,7 @@ function rowToSession(row, clicks) {
     id: row.id,
     companyId: row.company_id,
     clockNumber: row.clock_number,
-    driverName: row.driver_name,
+    employeeName: row.driver_name,
     durationMs: row.duration_ms,
     misses: row.misses,
     startedAt: row.started_at,
@@ -63,7 +63,7 @@ export function insertSession(session, evaluation) {
       id: session.id,
       company_id: session.companyId,
       clock_number: session.clockNumber,
-      driver_name: session.driverName,
+      driver_name: session.employeeName ?? session.driverName,
       duration_ms: session.durationMs,
       misses: session.misses,
       started_at: session.startedAt,
@@ -111,13 +111,14 @@ export function listAdminSessions({ flaggedOnly = false, limit = 200 } = {}) {
 
 export function sessionsToCsv(sessions) {
   const header =
-    'createdAt,clockNumber,driverName,misses,clickCount,medianMs,meanMs,shouldAlert,alertReasons';
+    'createdAt,clockNumber,employeeName,misses,clickCount,medianMs,meanMs,shouldAlert,alertReasons';
   const lines = sessions.map((s) => {
     const reasons = (s.alertReasons ?? []).join(' | ').replace(/"/g, '""');
+    const name = s.employeeName ?? s.driverName ?? '';
     return [
       s.createdAt,
       s.clockNumber,
-      `"${s.driverName.replace(/"/g, '""')}"`,
+      `"${name.replace(/"/g, '""')}"`,
       s.misses,
       s.clicks.length,
       s.sessionMedianMs ?? '',

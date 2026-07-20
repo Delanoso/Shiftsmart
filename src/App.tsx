@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { fetchCompany, fetchDriver, submitSession, verifyKioskExitPin } from './api';
+import { fetchCompany, fetchEmployee, submitSession, verifyKioskExitPin } from './api';
 import { useAppConfig } from './hooks/useAppConfig';
 import { useCountdown } from './hooks/useCountdown';
 import { useFatigueGame } from './hooks/useFatigueGame';
@@ -7,7 +7,7 @@ import {
   GAME_DURATION_MS,
   formatMs,
   type ClickRecord,
-  type DriverInfo,
+  type EmployeeInfo,
   type ScreenPhase,
   type SessionResult,
 } from './types';
@@ -47,7 +47,7 @@ export default function App() {
   const { config } = useAppConfig();
   const [phase, setPhase] = useState<ScreenPhase>('login');
   const [clockInput, setClockInput] = useState('');
-  const [driver, setDriver] = useState<DriverInfo | null>(null);
+  const [employee, setEmployee] = useState<EmployeeInfo | null>(null);
   const [loginError, setLoginError] = useState('');
   const [companyName, setCompanyName] = useState('');
   const [loading, setLoading] = useState(false);
@@ -62,7 +62,7 @@ export default function App() {
   const kioskMode = config.kioskMode;
 
   const resetToLogin = useCallback(() => {
-    setDriver(null);
+    setEmployee(null);
     setClockInput('');
     setSessionResult(null);
     setSaveError('');
@@ -107,13 +107,13 @@ export default function App() {
 
   const onGameComplete = useCallback(
     async (clicks: ClickRecord[], misses: number) => {
-      if (!driver) return;
+      if (!employee) return;
       setPhase('results');
       setLoading(true);
       setSaveError('');
       try {
         const result = await submitSession({
-          clockNumber: driver.clockNumber,
+          clockNumber: employee.clockNumber,
           durationMs: GAME_DURATION_MS,
           clicks,
           misses,
@@ -127,7 +127,7 @@ export default function App() {
         setLoading(false);
       }
     },
-    [driver, gameStartedAt],
+    [employee, gameStartedAt],
   );
 
   const game = useFatigueGame({
@@ -140,8 +140,8 @@ export default function App() {
     setLoginError('');
     setLoading(true);
     try {
-      const info = await fetchDriver(clockInput);
-      setDriver(info);
+      const info = await fetchEmployee(clockInput);
+      setEmployee(info);
       setPhase('instructions');
     } catch (err) {
       setLoginError(err instanceof Error ? err.message : 'Invalid clock number');
@@ -209,7 +209,7 @@ export default function App() {
       {phase === 'login' && (
         <main className="main card">
           <h2>Enter your clock number</h2>
-          <p className="muted">Your ID links this session to your driver record and baseline history.</p>
+          <p className="muted">Your ID links this session to your employee record and baseline history.</p>
           <form onSubmit={handleLogin} className="login-form">
             <label htmlFor="clock">Clock number</label>
             <input
@@ -227,7 +227,7 @@ export default function App() {
             </button>
           </form>
           {!kioskMode ? (
-            <p className="hint muted">Demo drivers: 1001–1005 (more can be loaded into data/drivers.json).</p>
+            <p className="hint muted">Demo employees: 1001–1005 (import more from Admin → Employees).</p>
           ) : null}
           {!kioskMode ? (
             <p className="hint muted">
@@ -240,14 +240,14 @@ export default function App() {
         </main>
       )}
 
-      {phase !== 'login' && driver ? (
-        <div className="driver-bar">
+      {phase !== 'login' && employee ? (
+        <div className="employee-bar">
           <span>
-            {driver.name} · #{driver.clockNumber}
+            {employee.name} · #{employee.clockNumber}
           </span>
           {!kioskMode || kioskUnlocked ? (
             <button type="button" className="link-btn" onClick={tryUnlockKiosk}>
-              {kioskMode ? 'Exit kiosk' : 'Switch driver'}
+              {kioskMode ? 'Exit kiosk' : 'Switch employee'}
             </button>
           ) : null}
         </div>
@@ -314,11 +314,11 @@ export default function App() {
                 <div>
                   <p className="stat-label">Your baseline (median)</p>
                   <p className="stat-value">
-                    {formatMs(sessionResult.baselines.driver.medianReactionTimeMs)}
+                    {formatMs(sessionResult.baselines.employee.medianReactionTimeMs)}
                   </p>
                   <p className="muted tiny">
-                    {sessionResult.baselines.driver.sessionCount} sessions ·{' '}
-                    {sessionResult.baselines.driver.clickCount} clicks
+                    {sessionResult.baselines.employee.sessionCount} sessions ·{' '}
+                    {sessionResult.baselines.employee.clickCount} clicks
                   </p>
                 </div>
                 <div>

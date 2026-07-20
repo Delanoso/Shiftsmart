@@ -10,7 +10,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "start": "NODE_ENV=production node server/index.js",
-    "import:drivers": "node server/import-drivers.js",
+    "import:employees": "node server/import-employees.js",
     "package:customer": "bash deploy/customer/build-package.sh"
   },
   "dependencies": {

@@ -1,5 +1,5 @@
 import fs from 'fs/promises';
-import { importDriversFromCsv } from './drivers.js';
+import { importEmployeesFromCsv } from './employees.js';
 
 function readArg(name) {
   const prefix = `--${name}=`;
@@ -11,7 +11,7 @@ async function main() {
   const filePath = process.argv[2];
   if (!filePath) {
     console.error(
-      'Usage: node server/import-drivers.js <csv-file> [--companyId=company-1] [--companyName="Company Name"] [--append=true]',
+      'Usage: node server/import-employees.js <csv-file> [--companyId=company-1] [--companyName="Company Name"] [--append=true]',
     );
     process.exit(1);
   }
@@ -21,7 +21,7 @@ async function main() {
   const companyName = readArg('companyName');
   const append = readArg('append') === 'true';
 
-  const result = await importDriversFromCsv({
+  const result = await importEmployeesFromCsv({
     csvText,
     companyId,
     companyName,
@@ -29,7 +29,7 @@ async function main() {
   });
 
   if (!result.ok) {
-    console.error('Driver import failed:');
+    console.error('Employee import failed:');
     for (const error of result.errors) {
       console.error(`- ${error}`);
     }
@@ -37,7 +37,7 @@ async function main() {
   }
 
   console.log(
-    `Imported ${result.summary.validDrivers} drivers. Final roster size: ${result.summary.finalDriverCount}.`,
+    `Imported ${result.summary.validEmployees} employees. Final roster size: ${result.summary.finalEmployeeCount}.`,
   );
   console.log(`Company: ${result.companyName} (${result.companyId})`);
 }
@@ -46,4 +46,3 @@ main().catch((error) => {
   console.error(error);
   process.exit(1);
 });
-

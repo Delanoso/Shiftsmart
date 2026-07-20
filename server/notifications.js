@@ -3,7 +3,8 @@ import { getDb } from './db.js';
 export function createAdminNotification({ session, evaluation }) {
   const db = getDb();
   const id = crypto.randomUUID();
-  const message = `Fatigue concern: ${session.driverName} (#${session.clockNumber}) — review required.`;
+  const name = session.employeeName ?? session.driverName;
+  const message = `Fatigue concern: ${name} (#${session.clockNumber}) — review required.`;
 
   db.prepare(
     `INSERT INTO admin_notifications (
@@ -14,7 +15,7 @@ export function createAdminNotification({ session, evaluation }) {
     session.id,
     session.companyId,
     session.clockNumber,
-    session.driverName,
+    name,
     message,
     JSON.stringify(evaluation.alertReasons),
     new Date().toISOString(),
@@ -34,7 +35,7 @@ export function listNotifications({ unreadOnly = false, limit = 100 } = {}) {
     sessionId: row.session_id,
     companyId: row.company_id,
     clockNumber: row.clock_number,
-    driverName: row.driver_name,
+    employeeName: row.driver_name,
     message: row.message,
     reasons: JSON.parse(row.reasons_json),
     readAt: row.read_at,

@@ -37,7 +37,7 @@ Edit `.env`:
 
 You can instead (or also) edit **`data/company.json`** for the same fields; **`.env` overrides** the JSON file.
 
-### B. Driver roster
+### B. Employee roster
 
 Prepare CSV:
 
@@ -51,10 +51,10 @@ Import:
 
 ```bash
 npm install
-npm run import:drivers -- "./data/drivers-template.csv" --companyId=company-1 --companyName="Your Company Name Here"
+npm run import:employees -- "./data/employees-template.csv" --companyId=company-1 --companyName="Your Company Name Here"
 ```
 
-Or replace `drivers-template.csv` with the customer export from payroll/HR.
+Or replace `employees-template.csv` with the customer export from payroll/HR.
 
 ### C. Logo (optional)
 
@@ -119,7 +119,7 @@ Test with [webhook.site](https://webhook.site) during setup, then point to the c
 Back up regularly:
 
 - `data/shiftsmart.db` (SQLite — sessions, clicks, admin notifications)
-- `data/drivers.json`
+- `data/employees.json`
 - `data/company.json`
 - `.env` (secure storage)
 
@@ -131,7 +131,7 @@ Supervisors open **`/admin`** on the same server URL and sign in with `ADMIN_API
 
 - Fatigue flags create **admin notifications** automatically (no SMS required)
 - Review session history and **export CSV**
-- Import the driver roster from CSV on the **Drivers** tab (no CLI required)
+- Import the employee roster from CSV on the **Employees** tab (no CLI required)
 
 ## 7. Updates (new version from Delano Solutions)
 

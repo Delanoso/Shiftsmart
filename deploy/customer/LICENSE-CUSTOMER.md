@@ -8,7 +8,7 @@ Delano Solutions grants **Customer** a non-exclusive, non-transferable license t
 
 ## Scope
 
-- **Permitted:** Install on Customer-owned or Customer-contracted servers; configure branding; load Customer employee/driver roster; use for operational fatigue screening.
+- **Permitted:** Install on Customer-owned or Customer-contracted servers; configure branding; load Customer employee/employee roster; use for operational fatigue screening.
 - **Not permitted:** Resell, sublicense, or host as a multi-tenant service for third parties; reverse engineer except where law allows.
 
 ## Data

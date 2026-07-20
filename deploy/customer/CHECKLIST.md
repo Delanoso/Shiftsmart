@@ -11,7 +11,7 @@ Use this when handing over an Option 2 install.
 
 ## Roster
 
-- [ ] Driver CSV imported (`npm run import:drivers`)
+- [ ] Employee CSV imported (`npm run import:employees`)
 - [ ] Spot-check: 3 clock numbers log in and show correct names
 - [ ] Duplicate clock numbers resolved
 

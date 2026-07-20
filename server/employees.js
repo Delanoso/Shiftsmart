@@ -4,7 +4,8 @@ import { fileURLToPath } from 'url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', 'data');
-const DRIVERS_PATH = path.join(DATA_DIR, 'drivers.json');
+const EMPLOYEES_PATH = path.join(DATA_DIR, 'employees.json');
+const LEGACY_DRIVERS_PATH = path.join(DATA_DIR, 'drivers.json');
 
 function splitCsvLine(line) {
   const cells = [];
@@ -53,21 +54,36 @@ function resolveHeaderIndex(headers, candidates) {
   return -1;
 }
 
-export async function readDriversFile() {
+function normalizeRoster(data) {
+  const employees = data.employees ?? data.drivers ?? [];
+  return {
+    companyId: data.companyId ?? 'company-1',
+    companyName: data.companyName ?? 'Company',
+    employees,
+  };
+}
+
+export async function readEmployeesFile() {
   try {
-    const raw = await fs.readFile(DRIVERS_PATH, 'utf-8');
-    return JSON.parse(raw);
+    const raw = await fs.readFile(EMPLOYEES_PATH, 'utf-8');
+    return normalizeRoster(JSON.parse(raw));
   } catch {
-    return { companyId: 'company-1', companyName: 'Company', drivers: [] };
+    try {
+      const raw = await fs.readFile(LEGACY_DRIVERS_PATH, 'utf-8');
+      return normalizeRoster(JSON.parse(raw));
+    } catch {
+      return { companyId: 'company-1', companyName: 'Company', employees: [] };
+    }
   }
 }
 
-export async function writeDriversFile(data) {
+export async function writeEmployeesFile(data) {
   await fs.mkdir(DATA_DIR, { recursive: true });
-  await fs.writeFile(DRIVERS_PATH, JSON.stringify(data, null, 2), 'utf-8');
+  const normalized = normalizeRoster(data);
+  await fs.writeFile(EMPLOYEES_PATH, JSON.stringify(normalized, null, 2), 'utf-8');
 }
 
-export function parseDriversCsv(csvText) {
+export function parseEmployeesCsv(csvText) {
   const lines = String(csvText ?? '')
     .replace(/\r\n/g, '\n')
     .replace(/\r/g, '\n')
@@ -77,15 +93,20 @@ export function parseDriversCsv(csvText) {
 
   if (lines.length < 2) {
     return {
-      errors: ['CSV must include a header row and at least one driver row.'],
-      drivers: [],
-      summary: { totalRows: 0, validDrivers: 0 },
+      errors: ['CSV must include a header row and at least one employee row.'],
+      employees: [],
+      summary: { totalRows: 0, validEmployees: 0 },
     };
   }
 
   const headers = splitCsvLine(lines[0]);
   const clockIndex = resolveHeaderIndex(headers, ['clockNumber', 'clock', 'clockno', 'clockid']);
-  const nameIndex = resolveHeaderIndex(headers, ['name', 'driverName', 'fullname']);
+  const nameIndex = resolveHeaderIndex(headers, [
+    'name',
+    'employeeName',
+    'driverName',
+    'fullname',
+  ]);
 
   const errors = [];
   if (clockIndex < 0) errors.push('Missing required clock number column.');
@@ -93,12 +114,12 @@ export function parseDriversCsv(csvText) {
   if (errors.length > 0) {
     return {
       errors,
-      drivers: [],
-      summary: { totalRows: lines.length - 1, validDrivers: 0 },
+      employees: [],
+      summary: { totalRows: lines.length - 1, validEmployees: 0 },
     };
   }
 
-  const drivers = [];
+  const employees = [];
   const seenClockNumbers = new Set();
 
   for (let rowIndex = 1; rowIndex < lines.length; rowIndex += 1) {
@@ -115,7 +136,9 @@ export function parseDriversCsv(csvText) {
     }
 
     if (!/^[a-zA-Z0-9]+$/.test(clockNumber)) {
-      errors.push(`Row ${rowIndex + 1}: invalid clock number "${rawClockNumber}". Use letters/numbers only.`);
+      errors.push(
+        `Row ${rowIndex + 1}: invalid clock number "${rawClockNumber}". Use letters/numbers only.`,
+      );
       continue;
     }
 
@@ -125,27 +148,27 @@ export function parseDriversCsv(csvText) {
     }
 
     seenClockNumbers.add(clockNumber);
-    drivers.push({ clockNumber, name });
+    employees.push({ clockNumber, name });
   }
 
   return {
     errors,
-    drivers,
+    employees,
     summary: {
       totalRows: lines.length - 1,
-      validDrivers: drivers.length,
+      validEmployees: employees.length,
     },
   };
 }
 
-export async function importDriversFromCsv({
+export async function importEmployeesFromCsv({
   csvText,
   companyId,
   companyName,
   replaceExisting = true,
 }) {
-  const current = await readDriversFile();
-  const parsed = parseDriversCsv(csvText);
+  const current = await readEmployeesFile();
+  const parsed = parseEmployeesCsv(csvText);
 
   if (parsed.errors.length > 0) {
     return {
@@ -156,24 +179,24 @@ export async function importDriversFromCsv({
     };
   }
 
-  const nextDrivers = replaceExisting
-    ? parsed.drivers
-    : [...current.drivers, ...parsed.drivers];
+  const nextEmployees = replaceExisting
+    ? parsed.employees
+    : [...current.employees, ...parsed.employees];
 
   const duplicateExisting = [];
   const dedupeCheck = new Set();
-  for (const driver of nextDrivers) {
-    if (dedupeCheck.has(driver.clockNumber)) {
-      duplicateExisting.push(driver.clockNumber);
+  for (const employee of nextEmployees) {
+    if (dedupeCheck.has(employee.clockNumber)) {
+      duplicateExisting.push(employee.clockNumber);
     }
-    dedupeCheck.add(driver.clockNumber);
+    dedupeCheck.add(employee.clockNumber);
   }
 
   if (duplicateExisting.length > 0) {
     return {
       ok: false,
       errors: [`Duplicate clock numbers after import: ${duplicateExisting.join(', ')}`],
-      drivers: parsed.drivers,
+      employees: parsed.employees,
       summary: parsed.summary,
       companyId: companyId ?? current.companyId,
       companyName: companyName ?? current.companyName,
@@ -183,18 +206,18 @@ export async function importDriversFromCsv({
   const nextData = {
     companyId: companyId?.trim() || current.companyId,
     companyName: companyName?.trim() || current.companyName,
-    drivers: nextDrivers,
+    employees: nextEmployees,
   };
 
-  await writeDriversFile(nextData);
+  await writeEmployeesFile(nextData);
 
   return {
     ok: true,
     errors: [],
-    drivers: parsed.drivers,
+    employees: parsed.employees,
     summary: {
       ...parsed.summary,
-      finalDriverCount: nextData.drivers.length,
+      finalEmployeeCount: nextData.employees.length,
       replacedExisting: replaceExisting,
     },
     companyId: nextData.companyId,
@@ -202,7 +225,6 @@ export async function importDriversFromCsv({
   };
 }
 
-export function buildDriversCsvTemplate() {
+export function buildEmployeesCsvTemplate() {
   return ['clockNumber,name', '1001,Alex Rivera', '1002,Jordan Lee'].join('\n');
 }
-

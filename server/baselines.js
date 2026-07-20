@@ -1,4 +1,8 @@
-const DRIVER_BASELINE_START_MS = Number(process.env.DRIVER_BASELINE_START_MS ?? 550);
+const EMPLOYEE_BASELINE_START_MS = Number(
+  process.env.EMPLOYEE_BASELINE_START_MS ??
+    process.env.DRIVER_BASELINE_START_MS ??
+    550,
+);
 const COMPANY_BASELINE_START_MS = Number(process.env.COMPANY_BASELINE_START_MS ?? 550);
 
 export function median(values) {
@@ -17,12 +21,12 @@ export function mean(values) {
 
 export function computeBaselines(sessions, companyId, clockNumber) {
   const companySessions = sessions.filter((s) => s.companyId === companyId);
-  const driverSessions = companySessions.filter((s) => s.clockNumber === clockNumber);
+  const employeeSessions = companySessions.filter((s) => s.clockNumber === clockNumber);
 
   const companyReactionTimes = companySessions.flatMap((s) =>
     s.clicks.map((c) => c.reactionTimeMs),
   );
-  const driverReactionTimes = driverSessions.flatMap((s) =>
+  const employeeReactionTimes = employeeSessions.flatMap((s) =>
     s.clicks.map((c) => c.reactionTimeMs),
   );
 
@@ -33,11 +37,11 @@ export function computeBaselines(sessions, companyId, clockNumber) {
       medianReactionTimeMs: median(companyReactionTimes) ?? COMPANY_BASELINE_START_MS,
       meanReactionTimeMs: mean(companyReactionTimes) ?? COMPANY_BASELINE_START_MS,
     },
-    driver: {
-      sessionCount: driverSessions.length,
-      clickCount: driverReactionTimes.length,
-      medianReactionTimeMs: median(driverReactionTimes) ?? DRIVER_BASELINE_START_MS,
-      meanReactionTimeMs: mean(driverReactionTimes) ?? DRIVER_BASELINE_START_MS,
+    employee: {
+      sessionCount: employeeSessions.length,
+      clickCount: employeeReactionTimes.length,
+      medianReactionTimeMs: median(employeeReactionTimes) ?? EMPLOYEE_BASELINE_START_MS,
+      meanReactionTimeMs: mean(employeeReactionTimes) ?? EMPLOYEE_BASELINE_START_MS,
     },
   };
 }

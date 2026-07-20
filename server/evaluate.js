@@ -29,15 +29,16 @@ export function evaluateSession(session, baselinesBefore) {
     reasons.push(`${misses} missed targets (timeout).`);
   }
 
-  const driverBaseline = baselinesBefore.driver.medianReactionTimeMs;
+  const employeeBaseline = baselinesBefore.employee?.medianReactionTimeMs
+    ?? baselinesBefore.driver?.medianReactionTimeMs;
   if (
-    driverBaseline != null &&
+    employeeBaseline != null &&
     sessionMedian != null &&
-    sessionMedian > driverBaseline + ALERT_MARGIN_MS
+    sessionMedian > employeeBaseline + ALERT_MARGIN_MS
   ) {
     shouldAlert = true;
     reasons.push(
-      `Session median (${Math.round(sessionMedian)} ms) slower than your baseline (${Math.round(driverBaseline)} ms).`,
+      `Session median (${Math.round(sessionMedian)} ms) slower than your baseline (${Math.round(employeeBaseline)} ms).`,
     );
   }
 

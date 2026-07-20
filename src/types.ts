@@ -13,7 +13,7 @@ export type ScreenPhase =
   | 'playing'
   | 'results';
 
-export interface DriverInfo {
+export interface EmployeeInfo {
   clockNumber: string;
   name: string;
   companyId: string;
@@ -53,7 +53,7 @@ export interface SessionResult {
     placeholder?: boolean;
   };
   baselines: {
-    driver: BaselineStats;
+    employee: BaselineStats;
     company: BaselineStats;
   };
 }

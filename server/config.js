@@ -103,22 +103,27 @@ export function toPublicConfig(config) {
   };
 }
 
-export async function syncDriversCompanyMeta() {
+export async function syncEmployeesCompanyMeta() {
   const config = await loadCompanyConfig();
-  const driversPath = path.join(__dirname, '..', 'data', 'drivers.json');
+  const employeesPath = path.join(__dirname, '..', 'data', 'employees.json');
   try {
-    const raw = await fs.readFile(driversPath, 'utf-8');
-    const drivers = JSON.parse(raw);
+    const raw = await fs.readFile(employeesPath, 'utf-8');
+    const roster = JSON.parse(raw);
+    const employees = roster.employees ?? roster.drivers ?? [];
     if (
-      drivers.companyId !== config.clientCompanyId ||
-      drivers.companyName !== config.clientCompanyName
+      roster.companyId !== config.clientCompanyId ||
+      roster.companyName !== config.clientCompanyName ||
+      roster.drivers
     ) {
-      drivers.companyId = config.clientCompanyId;
-      drivers.companyName = config.clientCompanyName;
-      await fs.writeFile(driversPath, JSON.stringify(drivers, null, 2), 'utf-8');
+      const next = {
+        companyId: config.clientCompanyId,
+        companyName: config.clientCompanyName,
+        employees,
+      };
+      await fs.writeFile(employeesPath, JSON.stringify(next, null, 2), 'utf-8');
     }
   } catch {
-    // drivers file may not exist yet during first install
+    // employees file may not exist yet during first install
   }
   return config;
 }

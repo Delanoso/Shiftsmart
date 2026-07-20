@@ -4,12 +4,12 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import { sendSupervisorAlert } from './alert.js';
 import {
-  buildDriversCsvTemplate,
-  importDriversFromCsv,
-  parseDriversCsv,
-  readDriversFile,
-} from './drivers.js';
-import { loadCompanyConfig, syncDriversCompanyMeta, toPublicConfig } from './config.js';
+  buildEmployeesCsvTemplate,
+  importEmployeesFromCsv,
+  parseEmployeesCsv,
+  readEmployeesFile,
+} from './employees.js';
+import { loadCompanyConfig, syncEmployeesCompanyMeta, toPublicConfig } from './config.js';
 import { migrateSessionsFromJsonIfNeeded } from './db.js';
 import { computeBaselines } from './baselines.js';
 import { evaluateSession } from './evaluate.js';
@@ -43,7 +43,7 @@ async function deliverAlerts(session, evaluation) {
 
   if (process.env.ALERT_WEBHOOK_URL) {
     const payload = {
-      driver: session.driverName,
+      employee: session.employeeName,
       clockNumber: session.clockNumber,
       companyId: session.companyId,
       sessionId: session.id,
@@ -55,7 +55,7 @@ async function deliverAlerts(session, evaluation) {
     webhookSent = result.sent;
     webhookError = result.error;
   } else if (ALERT_PHONE_NUMBER) {
-    console.warn('[Fatigue Alert — phone not wired]', session.clockNumber, session.driverName);
+    console.warn('[Fatigue Alert — phone not wired]', session.clockNumber, session.employeeName);
   }
 
   return {
@@ -95,49 +95,49 @@ app.post('/api/kiosk/verify-exit', (req, res) => {
 });
 
 app.get('/api/company', async (_req, res) => {
-  const data = await readDriversFile();
+  const data = await readEmployeesFile();
   const config = await loadCompanyConfig();
   res.json({
     companyId: data.companyId || config.clientCompanyId,
     companyName: data.companyName || config.clientCompanyName,
-    driverCount: data.drivers?.length ?? 0,
+    employeeCount: data.employees?.length ?? 0,
   });
 });
 
-app.get('/api/drivers/:clockNumber', async (req, res) => {
-  const data = await readDriversFile();
-  const driver = data.drivers?.find((d) => d.clockNumber === req.params.clockNumber);
-  if (!driver) {
-    res.status(404).json({ error: 'Driver not found' });
+app.get('/api/employees/:clockNumber', async (req, res) => {
+  const data = await readEmployeesFile();
+  const employee = data.employees?.find((d) => d.clockNumber === req.params.clockNumber);
+  if (!employee) {
+    res.status(404).json({ error: 'Employee not found' });
     return;
   }
   res.json({
-    ...driver,
+    ...employee,
     companyId: data.companyId,
     companyName: data.companyName,
   });
 });
 
 app.get('/api/baselines/:clockNumber', async (req, res) => {
-  const driversData = await readDriversFile();
-  const driver = driversData.drivers?.find((d) => d.clockNumber === req.params.clockNumber);
-  if (!driver) {
-    res.status(404).json({ error: 'Driver not found' });
+  const employeesData = await readEmployeesFile();
+  const employee = employeesData.employees?.find((d) => d.clockNumber === req.params.clockNumber);
+  if (!employee) {
+    res.status(404).json({ error: 'Employee not found' });
     return;
   }
-  const sessions = listSessionsForBaselines(driversData.companyId);
-  const baselines = computeBaselines(sessions, driversData.companyId, req.params.clockNumber);
+  const sessions = listSessionsForBaselines(employeesData.companyId);
+  const baselines = computeBaselines(sessions, employeesData.companyId, req.params.clockNumber);
   res.json({
     clockNumber: req.params.clockNumber,
-    driverName: driver.name,
-    companyId: driversData.companyId,
-    companyName: driversData.companyName,
+    employeeName: employee.name,
+    companyId: employeesData.companyId,
+    companyName: employeesData.companyName,
     baselines,
   });
 });
 
 app.post('/api/sessions', async (req, res) => {
-  const driversData = await readDriversFile();
+  const employeesData = await readEmployeesFile();
   const { clockNumber, durationMs, clicks, misses, startedAt, endedAt } = req.body ?? {};
 
   if (!clockNumber || !Array.isArray(clicks)) {
@@ -145,24 +145,24 @@ app.post('/api/sessions', async (req, res) => {
     return;
   }
 
-  const driver = driversData.drivers?.find((d) => d.clockNumber === String(clockNumber));
-  if (!driver) {
-    res.status(404).json({ error: 'Driver not found' });
+  const employee = employeesData.employees?.find((d) => d.clockNumber === String(clockNumber));
+  if (!employee) {
+    res.status(404).json({ error: 'Employee not found' });
     return;
   }
 
-  const priorSessions = listSessionsForBaselines(driversData.companyId);
+  const priorSessions = listSessionsForBaselines(employeesData.companyId);
   const baselinesBefore = computeBaselines(
     priorSessions,
-    driversData.companyId,
+    employeesData.companyId,
     String(clockNumber),
   );
 
   const session = {
     id: crypto.randomUUID(),
-    companyId: driversData.companyId,
+    companyId: employeesData.companyId,
     clockNumber: String(clockNumber),
-    driverName: driver.name,
+    employeeName: employee.name,
     durationMs: durationMs ?? 30_000,
     clicks: clicks.map((c, i) => ({
       index: i,
@@ -183,8 +183,8 @@ app.post('/api/sessions', async (req, res) => {
   const alertResult = await deliverAlerts(session, evaluation);
 
   const baselinesAfter = computeBaselines(
-    listSessionsForBaselines(driversData.companyId),
-    driversData.companyId,
+    listSessionsForBaselines(employeesData.companyId),
+    employeesData.companyId,
     String(clockNumber),
   );
 
@@ -196,35 +196,35 @@ app.post('/api/sessions', async (req, res) => {
   });
 });
 
-app.get('/api/admin/drivers/template.csv', requireAdmin, (_req, res) => {
+app.get('/api/admin/employees/template.csv', requireAdmin, (_req, res) => {
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.send(buildDriversCsvTemplate());
+  res.send(buildEmployeesCsvTemplate());
 });
 
-app.post('/api/admin/drivers/import/preview', requireAdmin, async (req, res) => {
+app.post('/api/admin/employees/import/preview', requireAdmin, async (req, res) => {
   const { csvText } = req.body ?? {};
   if (!csvText || typeof csvText !== 'string') {
     res.status(400).json({ error: 'csvText is required' });
     return;
   }
 
-  const parsed = parseDriversCsv(csvText);
+  const parsed = parseEmployeesCsv(csvText);
   res.json({
     ok: parsed.errors.length === 0,
     errors: parsed.errors,
     summary: parsed.summary,
-    preview: parsed.drivers.slice(0, 10),
+    preview: parsed.employees.slice(0, 10),
   });
 });
 
-app.post('/api/admin/drivers/import', requireAdmin, async (req, res) => {
+app.post('/api/admin/employees/import', requireAdmin, async (req, res) => {
   const { csvText, companyId, companyName, replaceExisting = true } = req.body ?? {};
   if (!csvText || typeof csvText !== 'string') {
     res.status(400).json({ error: 'csvText is required' });
     return;
   }
 
-  const result = await importDriversFromCsv({
+  const result = await importEmployeesFromCsv({
     csvText,
     companyId,
     companyName,
@@ -289,7 +289,7 @@ app.get('*', (req, res, next) => {
 });
 
 async function start() {
-  await syncDriversCompanyMeta();
+  await syncEmployeesCompanyMeta();
   const migration = migrateSessionsFromJsonIfNeeded();
   if (migration.migrated > 0) {
     console.log(`Migrated ${migration.migrated} session(s) from data/sessions.json to SQLite`);

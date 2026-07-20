@@ -8,7 +8,7 @@
 
 # ShiftSmart Fatigue Reaction Check
 
-A fast, measurable pre-start screening tool for drivers and equipment operators — built by **Delano Solutions** to help organisations reduce fatigue-related risk before work begins.
+A fast, measurable pre-start screening tool for employees and equipment operators — built by **Delano Solutions** to help organisations reduce fatigue-related risk before work begins.
 
 ---
 
@@ -46,7 +46,7 @@ A consistent, digital pre-start check that produces **objective data** instead o
 - **Personal baselines** — detect when someone is slower than *their* normal (e.g. starting standard 550 ms until history builds).
 - **Company-wide insight** — trends and benchmarks for safety reporting.
 - **Low friction** — ~30 seconds per check; suitable for depots and kiosks.
-- **Scalable** — designed for large rosters (hundreds of drivers per site).
+- **Scalable** — designed for large rosters (hundreds of employees per site).
 - **Compliance support** — documented, consistent fatigue-management process.
 
 ---
@@ -65,7 +65,7 @@ Integrate ShiftSmart into daily sign-on: complete the check before keys or equip
 
 ## Conclusion
 
-ShiftSmart helps organisations act **before** incidents by turning fatigue risk into measurable, trackable data. **Delano Solutions** invites you to pilot the system with your driver roster and tailor thresholds, branding, and alert workflows to your safety program.
+ShiftSmart helps organisations act **before** incidents by turning fatigue risk into measurable, trackable data. **Delano Solutions** invites you to pilot the system with your employee roster and tailor thresholds, branding, and alert workflows to your safety program.
 
 ---
 

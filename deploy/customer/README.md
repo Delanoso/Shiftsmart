@@ -4,13 +4,13 @@ Each **customer company** receives:
 
 1. A **zip package** (same codebase, their config only)
 2. **`deploy/customer/INSTALL.md`** — install on their infrastructure
-3. **Their** `.env`, `data/company.json`, driver CSV, optional logo
+3. **Their** `.env`, `data/company.json`, employee CSV, optional logo
 4. **No shared database** with other clients
 
 ## Your sales workflow
 
 1. **Close sale** — scope: single company, roster size, alert method, who hosts.
-2. **Gather assets** — company name, logo, driver CSV, alert webhook URL, brand colours.
+2. **Gather assets** — company name, logo, employee CSV, alert webhook URL, brand colours.
 3. **Prepare instance** — edit `data/company.json` + `.env`, import CSV, test one flagged session.
 4. **Build package** (from repo root):
 

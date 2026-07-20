@@ -108,7 +108,7 @@ export function migrateSessionsFromJsonIfNeeded() {
         id: s.id,
         company_id: s.companyId,
         clock_number: s.clockNumber,
-        driver_name: s.driverName,
+        driver_name: s.employeeName ?? s.driverName,
         duration_ms: s.durationMs ?? 30000,
         misses: s.misses ?? 0,
         started_at: s.startedAt,

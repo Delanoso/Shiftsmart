@@ -1,24 +1,24 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   clearStoredAdminKey,
-  downloadDriversTemplate,
+  downloadEmployeesTemplate,
   downloadSessionsCsv,
   fetchAdminSessions,
   fetchNotifications,
   getStoredAdminKey,
-  importDriversCsv,
+  importEmployeesCsv,
   markAllNotificationsRead,
   markNotificationRead,
-  previewDriversImport,
+  previewEmployeesImport,
   type AdminNotification,
   type AdminSessionRow,
-  type DriverImportPreview,
+  type EmployeeImportPreview,
   verifyAdminKey,
 } from './adminApi';
 import { useAppConfig } from './hooks/useAppConfig';
 import './index.css';
 
-type AdminTab = 'notifications' | 'sessions' | 'drivers';
+type AdminTab = 'notifications' | 'sessions' | 'employees';
 
 export default function AdminApp() {
   const { config } = useAppConfig();
@@ -35,7 +35,7 @@ export default function AdminApp() {
   const [csvText, setCsvText] = useState('');
   const [csvFileName, setCsvFileName] = useState('');
   const [replaceExisting, setReplaceExisting] = useState(true);
-  const [preview, setPreview] = useState<DriverImportPreview | null>(null);
+  const [preview, setPreview] = useState<EmployeeImportPreview | null>(null);
   const [importBusy, setImportBusy] = useState(false);
   const [importMessage, setImportMessage] = useState('');
   const [importError, setImportError] = useState('');
@@ -115,7 +115,7 @@ export default function AdminApp() {
     setImportMessage('');
     setImportError('');
     try {
-      const result = await previewDriversImport(csvText);
+      const result = await previewEmployeesImport(csvText);
       setPreview(result);
       if (!result.ok) {
         setImportError(result.errors.join(' '));
@@ -133,7 +133,7 @@ export default function AdminApp() {
     setImportMessage('');
     setImportError('');
     try {
-      const result = await importDriversCsv({
+      const result = await importEmployeesCsv({
         csvText,
         replaceExisting,
         companyName: config.clientCompanyName || undefined,
@@ -149,7 +149,7 @@ export default function AdminApp() {
         return;
       }
       setImportMessage(
-        `Imported ${result.summary.validDrivers} drivers. Roster size: ${result.summary.finalDriverCount}.`,
+        `Imported ${result.summary.validEmployees} employees. Roster size: ${result.summary.finalEmployeeCount}.`,
       );
       setPreview(null);
       setCsvText('');
@@ -218,10 +218,10 @@ export default function AdminApp() {
             </button>
             <button
               type="button"
-              className={tab === 'drivers' ? 'tab active' : 'tab'}
-              onClick={() => setTab('drivers')}
+              className={tab === 'employees' ? 'tab active' : 'tab'}
+              onClick={() => setTab('employees')}
             >
-              Drivers
+              Employees
             </button>
           </div>
 
@@ -245,7 +245,7 @@ export default function AdminApp() {
                   {notifications.map((n) => (
                     <li key={n.id} className={n.readAt ? 'notification read' : 'notification unread'}>
                       <div className="notification-head">
-                        <strong>{n.driverName}</strong>
+                        <strong>{n.employeeName}</strong>
                         <span className="muted tiny">#{n.clockNumber}</span>
                         <span className="muted tiny">{new Date(n.createdAt).toLocaleString()}</span>
                       </div>
@@ -290,7 +290,7 @@ export default function AdminApp() {
                   <thead>
                     <tr>
                       <th>When</th>
-                      <th>Driver</th>
+                      <th>Employee</th>
                       <th>Clock</th>
                       <th>Median</th>
                       <th>Hits</th>
@@ -302,7 +302,7 @@ export default function AdminApp() {
                     {sessions.map((s) => (
                       <tr key={s.id} className={s.shouldAlert ? 'row-alert' : ''}>
                         <td>{new Date(s.createdAt).toLocaleString()}</td>
-                        <td>{s.driverName}</td>
+                        <td>{s.employeeName}</td>
                         <td>{s.clockNumber}</td>
                         <td>{s.sessionMedianMs != null ? `${Math.round(s.sessionMedianMs)} ms` : '—'}</td>
                         <td>{s.clicks.length}</td>
@@ -316,11 +316,11 @@ export default function AdminApp() {
             </main>
           ) : null}
 
-          {tab === 'drivers' ? (
+          {tab === 'employees' ? (
             <main className="main card">
               <div className="admin-toolbar">
-                <h2>Import drivers</h2>
-                <button type="button" className="link-btn" onClick={() => downloadDriversTemplate()}>
+                <h2>Import employees</h2>
+                <button type="button" className="link-btn" onClick={() => downloadEmployeesTemplate()}>
                   Download CSV template
                 </button>
               </div>
@@ -330,11 +330,11 @@ export default function AdminApp() {
               </p>
 
               <div className="import-panel">
-                <label className="file-label" htmlFor="drivers-csv">
+                <label className="file-label" htmlFor="employees-csv">
                   Choose CSV file
                 </label>
                 <input
-                  id="drivers-csv"
+                  id="employees-csv"
                   type="file"
                   accept=".csv,text/csv"
                   onChange={(e) => handleCsvFile(e.target.files?.[0] ?? null)}
@@ -369,7 +369,7 @@ export default function AdminApp() {
                 {preview ? (
                   <div className="import-preview">
                     <p className="muted tiny">
-                      Rows: {preview.summary.totalRows} · Valid: {preview.summary.validDrivers}
+                      Rows: {preview.summary.totalRows} · Valid: {preview.summary.validEmployees}
                       {preview.ok ? ' · Ready to import' : ' · Fix errors before importing'}
                     </p>
                     {preview.errors.length > 0 ? (
@@ -400,7 +400,7 @@ export default function AdminApp() {
                             ))}
                           </tbody>
                         </table>
-                        {preview.summary.validDrivers > preview.preview.length ? (
+                        {preview.summary.validEmployees > preview.preview.length ? (
                           <p className="muted tiny">Showing first {preview.preview.length} rows.</p>
                         ) : null}
                       </div>

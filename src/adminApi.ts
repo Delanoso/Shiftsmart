@@ -36,7 +36,7 @@ export interface AdminNotification {
   id: string;
   sessionId: string;
   clockNumber: string;
-  driverName: string;
+  employeeName: string;
   message: string;
   reasons: string[];
   readAt: string | null;
@@ -46,7 +46,7 @@ export interface AdminNotification {
 export interface AdminSessionRow {
   id: string;
   clockNumber: string;
-  driverName: string;
+  employeeName: string;
   createdAt: string;
   misses: number;
   clicks: { reactionTimeMs: number }[];
@@ -91,55 +91,55 @@ export async function downloadSessionsCsv(flaggedOnly = false) {
   URL.revokeObjectURL(url);
 }
 
-export interface DriverImportPreview {
+export interface EmployeeImportPreview {
   ok: boolean;
   errors: string[];
-  summary: { totalRows: number; validDrivers: number; finalDriverCount?: number };
+  summary: { totalRows: number; validEmployees: number; finalEmployeeCount?: number };
   preview: { clockNumber: string; name: string }[];
 }
 
-export interface DriverImportResult {
+export interface EmployeeImportResult {
   ok: boolean;
   errors: string[];
   summary: {
     totalRows: number;
-    validDrivers: number;
-    finalDriverCount?: number;
+    validEmployees: number;
+    finalEmployeeCount?: number;
     replacedExisting?: boolean;
   };
   companyId?: string;
   companyName?: string;
 }
 
-export async function downloadDriversTemplate() {
-  const res = await adminFetch('/api/admin/drivers/template.csv');
+export async function downloadEmployeesTemplate() {
+  const res = await adminFetch('/api/admin/employees/template.csv');
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'drivers-template.csv';
+  a.download = 'employees-template.csv';
   a.click();
   URL.revokeObjectURL(url);
 }
 
-export async function previewDriversImport(csvText: string): Promise<DriverImportPreview> {
-  const res = await adminFetch('/api/admin/drivers/import/preview', {
+export async function previewEmployeesImport(csvText: string): Promise<EmployeeImportPreview> {
+  const res = await adminFetch('/api/admin/employees/import/preview', {
     method: 'POST',
     body: JSON.stringify({ csvText }),
   });
   return res.json();
 }
 
-export async function importDriversCsv(payload: {
+export async function importEmployeesCsv(payload: {
   csvText: string;
   replaceExisting: boolean;
   companyName?: string;
-}): Promise<DriverImportResult> {
+}): Promise<EmployeeImportResult> {
   const key = getStoredAdminKey();
   const headers = new Headers({ 'Content-Type': 'application/json' });
   if (key) headers.set('X-Admin-Key', key);
 
-  const res = await fetch('/api/admin/drivers/import', {
+  const res = await fetch('/api/admin/employees/import', {
     method: 'POST',
     headers,
     body: JSON.stringify(payload),
@@ -150,7 +150,7 @@ export async function importDriversCsv(payload: {
     throw new Error('Invalid admin key');
   }
 
-  const body = (await res.json().catch(() => ({}))) as DriverImportResult & { error?: string };
+  const body = (await res.json().catch(() => ({}))) as EmployeeImportResult & { error?: string };
   if (!res.ok && !body.errors) {
     throw new Error(body.error ?? `Import failed (${res.status})`);
   }

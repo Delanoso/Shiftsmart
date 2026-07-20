@@ -1,4 +1,4 @@
-import type { DriverInfo, SessionResult } from '../types';
+import type { EmployeeInfo, SessionResult } from '../types';
 
 export interface PublicAppConfig {
   vendorName: string;
@@ -26,11 +26,11 @@ export async function fetchPublicConfig(): Promise<PublicAppConfig> {
   return res.json();
 }
 
-export async function fetchDriver(clockNumber: string): Promise<DriverInfo> {
-  const res = await fetch(`${API}/drivers/${encodeURIComponent(clockNumber.trim())}`);
+export async function fetchEmployee(clockNumber: string): Promise<EmployeeInfo> {
+  const res = await fetch(`${API}/employees/${encodeURIComponent(clockNumber.trim())}`);
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error(body.error ?? 'Driver lookup failed');
+    throw new Error(body.error ?? 'Employee lookup failed');
   }
   return res.json();
 }
@@ -58,7 +58,7 @@ export async function submitSession(payload: {
 export async function fetchCompany(): Promise<{
   companyId: string;
   companyName: string;
-  driverCount: number;
+  employeeCount: number;
 }> {
   const res = await fetch(`${API}/company`);
   if (!res.ok) throw new Error('Failed to load company');
