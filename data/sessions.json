@@ -1,0 +1,27 @@
+{
+  "sessions": [
+    {
+      "id": "6f254696-cd3b-4219-a8fb-615545e91531",
+      "companyId": "company-1",
+      "clockNumber": "1001",
+      "driverName": "Alex Rivera",
+      "durationMs": 30000,
+      "clicks": [
+        {
+          "index": 0,
+          "reactionTimeMs": 320,
+          "targetSizePx": 64
+        },
+        {
+          "index": 1,
+          "reactionTimeMs": 410,
+          "targetSizePx": 72
+        }
+      ],
+      "misses": 0,
+      "startedAt": "2026-07-20T08:00:00Z",
+      "endedAt": "2026-07-20T08:00:30Z",
+      "createdAt": "2026-07-20T08:35:58.403Z"
+    }
+  ]
+}
