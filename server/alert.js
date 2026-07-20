@@ -2,9 +2,8 @@ const ALERT_WEBHOOK_URL = process.env.ALERT_WEBHOOK_URL ?? '';
 const ALERT_WEBHOOK_TIMEOUT_MS = Number(process.env.ALERT_WEBHOOK_TIMEOUT_MS ?? 3500);
 
 /**
- * Send a fatigue alert to configured destination(s).
- * Current implementation supports a generic webhook.
- * (Phone/SMS integration can be added later.)
+ * POST a fatigue alert payload to ALERT_WEBHOOK_URL when configured.
+ * Used for red (review) sessions. Admin dashboard notifications are separate.
  */
 export async function sendSupervisorAlert(payload) {
   if (!ALERT_WEBHOOK_URL) {

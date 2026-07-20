@@ -1,48 +1,52 @@
 # Customer go-live checklist
 
-Use this when handing over an Option 2 install.
+Use this when handing over or accepting an Option 2 install.
 
 ## Configuration
 
-- [ ] `COMPANY_NAME` and `COMPANY_ID` set by IT in `.env` / hosting setup
-- [ ] Brand colours and logo set in Admin → **Settings** (or confirmed with customer)
-- [ ] Disclaimer text reviewed with customer safety/compliance contact
+- [ ] `COMPANY_NAME` and `COMPANY_ID` set in `.env`
+- [ ] `ADMIN_API_KEY` changed from default `ADMIN-API-KEY`
+- [ ] Brand colours and logo confirmed (Admin → Settings or `.env` / `public/`)
+- [ ] Disclaimer text reviewed with safety / compliance
+- [ ] Sites / depots added if you use multi-site filters
 
 ## Roster
 
-- [ ] Employee CSV imported (`npm run import:employees`)
-- [ ] Spot-check: 3 clock numbers log in and show correct names
-- [ ] Duplicate clock numbers resolved
+- [ ] Employee CSV imported (Admin → Employees or `npm run import:employees`)
+- [ ] Spot-check: 3 clock numbers log in with correct names
+- [ ] No duplicate clock numbers
 
-## Game & data
+## Game and data
 
-- [ ] Full test run: instructions → countdown → 30s game → results
-- [ ] Session appears in `data/sessions.json`
-- [ ] Baselines show on results screen
+- [ ] Full run: instructions → countdown → 30s game → results
+- [ ] Session appears under Admin → Sessions
+- [ ] Baselines show on the results screen
+- [ ] One **green** and one **red** test reviewed in Notifications
 
 ## Alerts
 
-- [ ] Fatigue flag creates a notification on **`/admin`**
-- [ ] `ADMIN_API_KEY` changed from the default `ADMIN-API-KEY` (or confirmed intentionally)
-- [ ] Supervisor can log in with `ADMIN_API_KEY`
-- [ ] Optional: `ALERT_WEBHOOK_URL` for external systems
+- [ ] Notifications appear on `/admin`
+- [ ] Supervisors can sign in with the production admin key
+- [ ] Leaving admin for the operator screen requires the key again
+- [ ] Optional: `ALERT_WEBHOOK_URL` tested with a red session
 
 ## Production
 
-- [ ] `npm run build` completed on target server
-- [ ] Service starts on reboot (systemd / Windows Task / PM2)
-- [ ] HTTPS enabled if exposed outside the depot LAN
-- [ ] Backup plan for `data/shiftsmart.db` documented
+- [ ] `npm run build` completed on the target host
+- [ ] Service starts on reboot (systemd / Windows service / PM2)
+- [ ] HTTPS enabled if used outside the depot LAN
+- [ ] Backup plan for `data/shiftsmart.db`, `data/employees.json`, `data/company.json`, and `.env`
 
-## Training (5 minutes)
+## Training (about 5 minutes)
 
 - [ ] Operators: clock number → play → results
-- [ ] Supervisors: what a “flagged” result means and escalation path
-- [ ] IT: where logs and data files live
+- [ ] Supervisors: green vs red and escalation path
+- [ ] IT: where data files and backups live
 
 ## Sign-off
 
 | Role | Name | Date |
 |------|------|------|
 | Customer safety lead | | |
+| Customer IT | | |
 | Supplier | | |

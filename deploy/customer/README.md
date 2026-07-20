@@ -1,36 +1,43 @@
-# Selling ShiftSmart as a once-off (Option 2)
+# ShiftSmart — customer install package
 
-Each **customer company** receives:
+This folder is what buyer **IT** and your sales handoff use for Option 2 (one install per company).
 
-1. A **zip package** (same codebase, their config only)
-2. **`deploy/customer/INSTALL.md`** — install on their infrastructure
-3. **Their** `.env`, `data/company.json`, employee CSV, optional logo
-4. **No shared database** with other clients
+## For buyer IT
 
-## Your sales workflow
+Start here: **[`IT-SETUP.md`](IT-SETUP.md)**
 
-1. **Close sale** — scope: single company, roster size, alert method, who hosts.
-2. **Gather assets** — company name, logo, employee CSV, alert webhook URL, brand colours.
-3. **Prepare instance** — edit `data/company.json` + `.env`, import CSV, test one flagged session.
-4. **Build package** (from repo root):
+Then: **[`CHECKLIST.md`](CHECKLIST.md)** before go-live.
+
+## For sales / packaging
+
+Each customer gets:
+
+1. A zip of the app (their own copy — not shared SaaS)
+2. `IT-SETUP.md` — install on their infrastructure
+3. Their `.env`, company name, employee CSV, optional logo
+4. No shared database with other clients
+
+### Workflow
+
+1. Close sale — single company, roster size, hosting, alert method.  
+2. Gather assets — company name, logo, employee CSV, webhook URL, colours.  
+3. Prepare instance — set `COMPANY_NAME` / `.env`, import CSV, test green + red.  
+4. Build package from repo root:
 
    ```bash
-   chmod +x deploy/customer/build-package.sh
-   ./deploy/customer/build-package.sh
+   npm run package:customer
    ```
 
    Deliver `dist-packages/shiftsmart-fatigue-check-customer-*.zip`.
 
-5. **Install** — you or their IT follows `INSTALL.md`.
-6. **Go-live** — complete `CHECKLIST.md` with sign-off.
+5. Install — customer IT (or you) follows `IT-SETUP.md`.  
+6. Go-live — complete `CHECKLIST.md`.
 
-## What to put in the contract (summary)
+### Contract notes (summary)
 
-- Perpetual license for **one organisation** / one deployment
-- Customer owns their server and data
-- Supplier retains IP in the software
-- Optional paid: updates, support, extra sites, SMS integration
+- Perpetual license for **one organisation** / one deployment  
+- Customer owns their server and data  
+- Supplier retains IP in the software  
+- Optional paid: updates, support, extra sites, integrations  
 
-## Licensing file
-
-See **`LICENSE-CUSTOMER.md`** (template — have a lawyer review before use).
+License template: [`LICENSE-CUSTOMER.md`](LICENSE-CUSTOMER.md)

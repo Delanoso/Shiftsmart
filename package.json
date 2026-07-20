@@ -2,6 +2,7 @@
   "name": "shiftsmart-fatigue-checker",
   "private": true,
   "version": "0.1.0",
+  "description": "ShiftSmart Fatigue Reaction Check — per-company installable reaction-time screening",
   "type": "module",
   "scripts": {
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",

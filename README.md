@@ -1,135 +1,132 @@
 # ShiftSmart Fatigue Reaction Check
 
-A short (~30 second) reaction-time game for employees and equipment operators. Operators enter their **clock number**, read quick instructions, complete a **3‑2‑1** countdown, then tap random circles as fast as possible. Each click records **reaction time**; results feed **per-employee** and **company-wide** baselines. Sessions that look fatigued can trigger a **supervisor alert** (phone number configured later).
+A ~30 second reaction-time check for employees and equipment operators before they drive or use equipment.
 
-## Quick start
+Operators enter a **clock number**, read short instructions, complete a **3-2-1** countdown, then tap random circles. Reaction times are stored and compared to personal and company baselines. Supervisors review results in the admin dashboard (green = within range, red = review).
+
+## Quick start (developers)
 
 ```bash
 npm install
 npm run dev
 ```
 
-- **Web app:** http://localhost:5173  
-- **API:** http://localhost:3001  
+- UI (Vite): http://localhost:5173  
+- API: http://localhost:3001  
 
-Production-style run (build + single server):
+Production-style (one process serves UI + API):
 
 ```bash
+npm install
 npm run build
 npm start
 ```
 
-Serves the built UI and API on port **3001**.
+Open http://localhost:3001
 
-## Sell / install per company (Option 2)
+## What you get (Option 2 — per company)
 
-Each customer gets their **own copy** (zip package), config, and data — not a shared SaaS login.
+Each customer receives their **own install** (not multi-tenant SaaS): app files, config, and local data.
 
-- **Sales & packaging:** [`deploy/customer/README.md`](deploy/customer/README.md)
-- **Install guide:** [`deploy/customer/INSTALL.md`](deploy/customer/INSTALL.md)
-- **Go-live checklist:** [`deploy/customer/CHECKLIST.md`](deploy/customer/CHECKLIST.md)
-- **Build zip:** `npm run package:customer` → `dist-packages/shiftsmart-fatigue-check-customer-*.zip`
+| Document | Audience |
+|----------|----------|
+| [`deploy/customer/IT-SETUP.md`](deploy/customer/IT-SETUP.md) | **Buyer IT** — install, configure, run, backup |
+| [`deploy/customer/CHECKLIST.md`](deploy/customer/CHECKLIST.md) | Go-live sign-off |
+| [`deploy/customer/README.md`](deploy/customer/README.md) | Sales / packaging workflow |
+| [`deploy/customer/LICENSE-CUSTOMER.md`](deploy/customer/LICENSE-CUSTOMER.md) | License template |
 
-Configure branding via **`data/company.json`** and/or **`.env`** (see `deploy/customer/customer.env.example`).
+Build a customer zip:
 
-## Employee roster
-
-Roster starts empty. Import employees after install:
-
-- Admin → **Employees** (CSV upload), or
-- `npm run import:employees -- "/path/to/employees.csv"`
-
-CSV format:
-
-```csv
-clockNumber,name
-E1001,Example Name
-E1002,Example Name
+```bash
+npm run package:customer
 ```
 
-Download a sample template from:
+Output: `dist-packages/shiftsmart-fatigue-check-customer-*.zip`
 
-- `GET /api/admin/employees/template.csv` (requires admin key)
+## Operator flow
 
-### CLI import
+1. Enter clock number  
+2. Instructions → close with **×**  
+3. Countdown **3, 2, 1**  
+4. ~**30s** game (random circles; miss if not tapped in time)  
+5. Results + baselines; supervisor notification created  
 
-Replace the existing roster:
+## Admin dashboard (`/admin`)
+
+Sign in with **`ADMIN_API_KEY`** (change from the default `ADMIN-API-KEY` before go-live).
+
+Leaving admin for the operator screen clears the session — the key must be entered again (shared-tablet safe).
+
+| Tab | Purpose |
+|-----|---------|
+| Notifications | Every completed session (green / red), filter by site |
+| Sessions | History + CSV export, filter by site |
+| Employees | Add / edit / delete, CSV import, site filter |
+| Settings | Logo, colours, sites/depots (company name is IT-only) |
+| Audit | Roster, branding, and session activity log |
+
+### Employee CSV
+
+```csv
+clockNumber,name,site
+E1001,Jane Smith,Main Depot
+E1002,John Doe,North Yard
+```
+
+`site` is optional (`depot` / `location` / `yard` also accepted).
+
+Import in Admin → **Employees**, or:
 
 ```bash
 npm run import:employees -- "/path/to/employees.csv" --companyId=company-1 --companyName="Your Company Name"
 ```
 
-Append to the existing roster instead of replacing:
+Append instead of replace: add `--append=true`.
 
-```bash
-npm run import:employees -- "/path/to/employees.csv" --append=true
-```
+## Data files
 
-### Import API
-
-- `POST /api/admin/employees/import/preview` — validate CSV and preview first 10 rows
-- `POST /api/admin/employees/import` — save the imported roster
-
-Example preview body:
-
-```json
-{
-  "csvText": "clockNumber,name\nE1001,Example Name\nE1002,Example Name"
-}
-```
-
-## Data storage
-
-| File | Purpose |
+| Path | Purpose |
 |------|---------|
-| `data/employees.json` | Company + employee roster (clock number, name, site) |
-| `data/shiftsmart.db` | SQLite: sessions, clicks, admin notifications, audit log |
-| `data/company.json` | Branding + configured sites/depots |
+| `data/employees.json` | Roster (clock number, name, site) |
+| `data/company.json` | Product name, company name, branding, sites |
+| `data/shiftsmart.db` | SQLite: sessions, notifications, audit log |
+| `.env` | Server secrets and overrides (not committed) |
 
-Baselines are computed from stored sessions when a run finishes. On first startup, existing `data/sessions.json` is migrated into SQLite if the database is empty.
+Roster starts **empty**. Branding defaults are placeholders until IT configures the company.
 
-## Admin dashboard
+## Environment (common)
 
-- URL: **`/admin`** (same host as the operator app)
-- Set **`ADMIN_API_KEY`** on the server (default install key is `ADMIN-API-KEY` — change it during setup); supervisors enter it once per browser session
-- Fatigue flags automatically create notifications on the admin page (no SMS required)
-- Export session history as CSV from the admin **Sessions** tab
-- Import, edit, and delete employees on the admin **Employees** tab (CSV supports optional `site` / depot)
-- Filter notifications, sessions, and employees by **site / depot**
-- Branding + site list: admin **Settings** tab (company name is set by IT at install)
-- **Audit** tab logs roster/branding changes and completed sessions
+Copy `.env.example` or `deploy/customer/customer.env.example` to `.env`.
 
-## Alert configuration
+| Variable | Purpose |
+|----------|---------|
+| `COMPANY_NAME` | Customer name shown in the app |
+| `COMPANY_ID` | Stable internal ID |
+| `ADMIN_API_KEY` | Supervisor admin login (change in production) |
+| `ALERT_WEBHOOK_URL` | Optional POST target for **red** sessions |
+| `POOR_REACTION_MS` | Slow-hit threshold (default `800`) |
+| `KIOSK_MODE` | Auto-return to login on depot tablets |
+| `KIOSK_EXIT_PIN` | Optional PIN to leave kiosk / fullscreen |
 
-Set environment variables on the server:
+See the env example files for baselines, colours, and kiosk options.
 
-| Variable | Description |
-|----------|-------------|
-| `ALERT_WEBHOOK_URL` | Webhook endpoint to receive fatigue alert payloads (recommended) |
-| `ALERT_WEBHOOK_TIMEOUT_MS` | Webhook request timeout (default `3500`) |
-| `ALERT_PHONE_NUMBER` | Supervisor SMS/call destination (optional; phone integration not wired yet) |
-| `ALERT_MARGIN_MS` | Ms above personal baseline median to flag (default `150`) |
-| `ALERT_COMPANY_FACTOR` | Multiplier vs company median (default `1.35`) |
-| `POOR_REACTION_MS` | Single-click threshold (default `800`) |
+## Green / red rules
 
-## Game flow
+- **Green:** fewer than 4 hits ≥ 800 ms, and **no** misses  
+- **Red:** 4+ hits ≥ 800 ms, **or** any missed circle  
 
-1. Enter clock number → lookup employee  
-2. Instruction modal → close with **×**  
-3. Countdown **3, 2, 1**  
-4. **30s** game — random circle size/position; miss if not clicked within ~2.5s  
-5. Results + baselines + optional fatigue alert  
+Every session notifies the admin dashboard. Optional webhook fires for red sessions only.
 
-## API
+## API (summary)
 
-- `GET /api/company` — company info  
-- `GET /api/employees/:clockNumber` — employee lookup  
-- `GET /api/baselines/:clockNumber` — current baselines  
-- `GET /api/admin/employees/template.csv` — CSV template for bulk employee import  
-- `POST /api/admin/employees/import/preview` — validate CSV without saving  
-- `POST /api/admin/employees/import` — import employees from CSV  
-- `PUT /api/admin/employees/:clockNumber` — edit employee  
-- `DELETE /api/admin/employees/:clockNumber` — delete employee  
-- `GET /api/admin/audit` — audit log  
-- `PUT /api/admin/settings/sites` — manage site/depot list  
-- `POST /api/sessions` — save session body: `{ clockNumber, durationMs, clicks[], misses, startedAt, endedAt }`
+| Method | Path | Notes |
+|--------|------|-------|
+| GET | `/api/health` | Health + whether admin key is configured |
+| GET | `/api/config` | Public branding / kiosk config |
+| GET | `/api/employees/:clockNumber` | Operator lookup |
+| POST | `/api/sessions` | Save a completed game |
+| * | `/api/admin/*` | Requires `X-Admin-Key` header |
+
+## License
+
+Customer license template: [`deploy/customer/LICENSE-CUSTOMER.md`](deploy/customer/LICENSE-CUSTOMER.md)

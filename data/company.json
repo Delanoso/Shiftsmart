@@ -12,8 +12,5 @@
     "logoPath": ""
   },
   "disclaimer": "This check is an operational screening aid only. It does not replace medical assessment or your company's fitness-for-work policies. Supervisors make final decisions.",
-  "sites": [
-    "Main Depot",
-    "North Yard"
-  ]
+  "sites": []
 }
