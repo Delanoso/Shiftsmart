@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Delano Solutions — ShiftSmart Fatigue Reaction Check</title>
+    <style>
+      :root {
+        --brand-navy: #0c2340;
+        --brand-blue: #1e5a8a;
+        --brand-accent: #c41e3a;
+        --brand-slate: #4a5568;
+        --brand-light: #f4f6f9;
+        --text: #1a202c;
+        --muted: #64748b;
+        --border: #e2e8f0;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: 'Segoe UI', system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+        font-size: 10.5pt;
+        line-height: 1.45;
+        color: var(--text);
+        background: #fff;
+      }
+
+      .page {
+        max-width: 8.5in;
+        margin: 0 auto;
+        padding: 0.55in 0.65in 0.6in;
+      }
+
+      /* Header */
+      .brand-header {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-between;
+        gap: 1rem;
+        padding-bottom: 0.35in;
+        border-bottom: 3px solid var(--brand-navy);
+        margin-bottom: 0.28in;
+      }
+
+      .brand-lockup .company {
+        font-size: 22pt;
+        font-weight: 700;
+        letter-spacing: -0.02em;
+        color: var(--brand-navy);
+        margin: 0;
+        line-height: 1.1;
+      }
+
+      .brand-lockup .tagline {
+        margin: 0.15rem 0 0;
+        font-size: 9pt;
+        color: var(--brand-blue);
+        font-weight: 600;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+      }
+
+      .doc-meta {
+        text-align: right;
+        font-size: 8.5pt;
+        color: var(--muted);
+      }
+
+      .doc-meta strong {
+        display: block;
+        color: var(--brand-navy);
+        font-size: 9pt;
+        margin-bottom: 0.15rem;
+      }
+
+      /* Title block */
+      .hero {
+        background: linear-gradient(135deg, var(--brand-navy) 0%, var(--brand-blue) 100%);
+        color: #fff;
+        padding: 0.28in 0.32in;
+        border-radius: 6px;
+        margin-bottom: 0.28in;
+      }
+
+      .hero h1 {
+        margin: 0 0 0.12in;
+        font-size: 16pt;
+        font-weight: 650;
+        line-height: 1.2;
+      }
+
+      .hero p {
+        margin: 0;
+        font-size: 10pt;
+        opacity: 0.92;
+        max-width: 95%;
+      }
+
+      h2 {
+        font-size: 11pt;
+        color: var(--brand-navy);
+        margin: 0.22in 0 0.1in;
+        padding-bottom: 0.06in;
+        border-bottom: 1px solid var(--border);
+      }
+
+      h2:first-of-type {
+        margin-top: 0;
+      }
+
+      p {
+        margin: 0 0 0.12in;
+      }
+
+      ul {
+        margin: 0 0 0.12in;
+        padding-left: 1.15rem;
+      }
+
+      li {
+        margin-bottom: 0.06in;
+      }
+
+      .two-col {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 0.28in;
+        margin-bottom: 0.1in;
+      }
+
+      .callout {
+        background: var(--brand-light);
+        border-left: 4px solid var(--brand-accent);
+        padding: 0.14in 0.18in;
+        margin: 0.15in 0;
+        font-size: 10pt;
+      }
+
+      .callout strong {
+        color: var(--brand-navy);
+      }
+
+      .steps {
+        counter-reset: step;
+        list-style: none;
+        padding-left: 0;
+      }
+
+      .steps li {
+        position: relative;
+        padding-left: 1.5rem;
+        margin-bottom: 0.08in;
+      }
+
+      .steps li::before {
+        counter-increment: step;
+        content: counter(step);
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 1.1rem;
+        height: 1.1rem;
+        background: var(--brand-blue);
+        color: #fff;
+        font-size: 8pt;
+        font-weight: 700;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        line-height: 1.1rem;
+        text-align: center;
+      }
+
+      .footer {
+        margin-top: 0.25in;
+        padding-top: 0.15in;
+        border-top: 1px solid var(--border);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 8pt;
+        color: var(--muted);
+      }
+
+      .footer .brand-small {
+        font-weight: 700;
+        color: var(--brand-navy);
+      }
+
+      .print-hint {
+        background: #fffbeb;
+        border: 1px solid #fcd34d;
+        padding: 0.12in 0.16in;
+        border-radius: 6px;
+        font-size: 9pt;
+        margin-bottom: 0.2in;
+        color: #92400e;
+      }
+
+      .print-hint strong {
+        color: #78350f;
+      }
+
+      @media print {
+        .print-hint,
+        .no-print {
+          display: none !important;
+        }
+
+        .page {
+          padding: 0.45in 0.55in;
+          max-width: none;
+        }
+
+        body {
+          font-size: 10pt;
+        }
+
+        .hero {
+          -webkit-print-color-adjust: exact;
+          print-color-adjust: exact;
+        }
+      }
+
+      @page {
+        size: letter;
+        margin: 0.4in;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <p class="print-hint no-print">
+        <strong>Save as PDF:</strong> Use your browser menu → <strong>Print</strong> → choose
+        <strong>Save as PDF</strong> (or Export as PDF). Enable “Background graphics” for full
+        branding colors.
+      </p>
+
+      <header class="brand-header">
+        <div class="brand-lockup">
+          <p class="company">Delano Solutions</p>
+          <p class="tagline">Safety &amp; workforce technology</p>
+        </div>
+        <div class="doc-meta">
+          <strong>Business proposal</strong>
+          ShiftSmart Fatigue Reaction Check<br />
+          Confidential — for client presentation
+        </div>
+      </header>
+
+      <section class="hero">
+        <h1>ShiftSmart Fatigue Reaction Check</h1>
+        <p>
+          A fast, measurable pre-start screening tool for drivers and equipment operators — built
+          by Delano Solutions to help organisations reduce fatigue-related risk before work begins.
+        </p>
+      </section>
+
+      <h2>Executive summary</h2>
+      <p>
+        <strong>ShiftSmart</strong> is a short, game-based reaction test (about 30 seconds) that
+        operators complete before driving or operating equipment. Staff identify themselves with
+        their <strong>clock number</strong>; the system records each click’s reaction time and
+        compares results to <strong>personal</strong> and <strong>company</strong> baselines. When
+        performance suggests possible fatigue, the platform can flag concern and support supervisor
+        follow-up (alert routing can be configured to your policies).
+      </p>
+
+      <div class="two-col">
+        <div>
+          <h2>The problem</h2>
+          <p>
+            Fatigue reduces reaction time, focus, and decision quality — yet it is often hard to
+            see or self-report accurately. Companies face safety, compliance, liability, and
+            operational costs when alertness is impaired at shift start.
+          </p>
+        </div>
+        <div>
+          <h2>The solution</h2>
+          <p>
+            A consistent, digital pre-start check that produces objective data instead of relying
+            only on conversation or visual judgment — without adding significant delay to the
+            sign-on process.
+          </p>
+        </div>
+      </div>
+
+      <h2>How it works</h2>
+      <ol class="steps">
+        <li>Operator enters clock number (linked to preloaded name and ID).</li>
+        <li>Brief on-screen instructions; operator closes the modal when ready.</li>
+        <li>Countdown <strong>3, 2, 1</strong>, then the game runs for ~30 seconds.</li>
+        <li>Random targets appear; operator taps/clicks each as quickly as possible.</li>
+        <li>System stores reaction times, misses, and session summary.</li>
+        <li>Results are compared to personal baseline and company baseline; concerns can be flagged.</li>
+      </ol>
+
+      <h2>Benefits for your organisation</h2>
+      <ul>
+        <li><strong>Safer pre-start decisions</strong> — screen alertness before high-risk tasks.</li>
+        <li><strong>Objective measurement</strong> — repeatable reaction-time data across the workforce.</li>
+        <li><strong>Personal baselines</strong> — detect when someone is slower than <em>their</em> normal (e.g. starting standard 550&nbsp;ms until history builds).</li>
+        <li><strong>Company-wide insight</strong> — trends and benchmarks for safety reporting.</li>
+        <li><strong>Low friction</strong> — ~30 seconds per check; suitable for depots and kiosks.</li>
+        <li><strong>Scalable</strong> — designed for large rosters (hundreds of drivers per site).</li>
+        <li><strong>Compliance support</strong> — documented, consistent fatigue-management process.</li>
+      </ul>
+
+      <div class="callout">
+        <strong>Why Delano Solutions?</strong> We combine practical field experience with a
+        deployable product: operator identification, session storage, baseline logic, and a clear
+        path to supervisor alerts — so the tool fits real transport and industrial operations, not
+        just a one-off demo.
+      </div>
+
+      <h2>Recommended deployment</h2>
+      <p>
+        Integrate ShiftSmart into daily sign-on: complete the check before keys or equipment are
+        issued. If results are within range, proceed; if flagged, apply your existing escalation
+        (conversation, rest, reassignment, or stand-down per policy).
+      </p>
+
+      <h2>Conclusion</h2>
+      <p>
+        ShiftSmart helps organisations act <strong>before</strong> incidents by turning fatigue risk
+        into measurable, trackable data. Delano Solutions invites you to pilot the system with your
+        driver roster and tailor thresholds, branding, and alert workflows to your safety program.
+      </p>
+
+      <footer class="footer">
+        <span class="brand-small">Delano Solutions</span>
+        <span>ShiftSmart Fatigue Reaction Check — business proposal</span>
+      </footer>
+    </div>
+  </body>
+</html>
