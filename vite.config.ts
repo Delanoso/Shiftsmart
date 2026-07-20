@@ -7,6 +7,8 @@ export default defineConfig({
     host: true,
     port: 5173,
     strictPort: true,
+    // Allow Cloudflare quick tunnels and similar public previews in dev
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://localhost:3001',
