@@ -167,3 +167,51 @@ export async function verifyAdminKey(key: string) {
     return false;
   }
 }
+
+export interface AdminSettings {
+  companyName: string;
+  companyNameEditable: boolean;
+  companyNameHint: string;
+  branding: {
+    primaryColor: string;
+    accentColor: string;
+    targetColor: string;
+    logoUrl: string | null;
+  };
+}
+
+export async function fetchAdminSettings(): Promise<AdminSettings> {
+  const res = await adminFetch('/api/admin/settings');
+  return res.json();
+}
+
+export async function saveBrandingColors(payload: {
+  primaryColor: string;
+  accentColor: string;
+  targetColor: string;
+}) {
+  const res = await adminFetch('/api/admin/settings/branding', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+  return res.json() as Promise<{ ok: boolean; branding: AdminSettings['branding'] }>;
+}
+
+export async function uploadAdminLogo(file: File) {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  for (let i = 0; i < bytes.length; i += 1) binary += String.fromCharCode(bytes[i]);
+  const imageBase64 = btoa(binary);
+
+  const res = await adminFetch('/api/admin/settings/logo', {
+    method: 'POST',
+    body: JSON.stringify({ filename: file.name, imageBase64 }),
+  });
+  return res.json() as Promise<{ ok: boolean; branding: AdminSettings['branding'] }>;
+}
+
+export async function removeAdminLogo() {
+  const res = await adminFetch('/api/admin/settings/logo', { method: 'DELETE' });
+  return res.json() as Promise<{ ok: boolean; branding: AdminSettings['branding'] }>;
+}

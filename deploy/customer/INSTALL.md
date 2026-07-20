@@ -132,6 +132,7 @@ Supervisors open **`/admin`** on the same server URL and sign in with `ADMIN_API
 - Fatigue flags create **admin notifications** automatically (no SMS required)
 - Review session history and **export CSV**
 - Import the employee roster from CSV on the **Employees** tab (no CLI required)
+- Upload logo and set brand colours on the **Settings** tab (company name is set by IT at install)
 
 ## 7. Updates (new version from Delano Solutions)
 

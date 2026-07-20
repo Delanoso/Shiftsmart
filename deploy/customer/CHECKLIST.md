@@ -4,9 +4,8 @@ Use this when handing over an Option 2 install.
 
 ## Configuration
 
-- [ ] `COMPANY_NAME` and `COMPANY_ID` set in `.env` or `data/company.json`
-- [ ] Brand colours verified in the browser
-- [ ] Logo placed in `public/` and `LOGO_PATH` set (if used)
+- [ ] `COMPANY_NAME` and `COMPANY_ID` set by IT in `.env` / hosting setup
+- [ ] Brand colours and logo set in Admin → **Settings** (or confirmed with customer)
 - [ ] Disclaimer text reviewed with customer safety/compliance contact
 
 ## Roster

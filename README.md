@@ -97,6 +97,7 @@ Baselines are computed from stored sessions when a run finishes. On first startu
 - Fatigue flags automatically create notifications on the admin page (no SMS required)
 - Export session history as CSV from the admin **Sessions** tab
 - Import employees from CSV on the admin **Employees** tab (preview + replace/append)
+- Branding: upload logo and set colours on the admin **Settings** tab (company name is set by IT at install)
 
 ## Alert configuration
 

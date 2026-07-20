@@ -9,7 +9,7 @@ import {
   parseEmployeesCsv,
   readEmployeesFile,
 } from './employees.js';
-import { loadCompanyConfig, syncEmployeesCompanyMeta, toPublicConfig } from './config.js';
+import { loadCompanyConfig, syncEmployeesCompanyMeta, toPublicConfig, updateBrandingSettings, saveUploadedLogo, clearUploadedLogo } from './config.js';
 import { migrateSessionsFromJsonIfNeeded } from './db.js';
 import { computeBaselines } from './baselines.js';
 import { evaluateSession } from './evaluate.js';
@@ -70,7 +70,7 @@ async function deliverAlerts(session, evaluation) {
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '4mb' }));
 
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, adminConfigured: isAdminConfigured() });
@@ -273,6 +273,50 @@ app.patch('/api/admin/notifications/:id/read', requireAdmin, (req, res) => {
 app.post('/api/admin/notifications/read-all', requireAdmin, (_req, res) => {
   const updated = markAllNotificationsRead();
   res.json({ ok: true, updated, unreadCount: countUnreadNotifications() });
+});
+
+app.get('/api/admin/settings', requireAdmin, async (_req, res) => {
+  const config = await loadCompanyConfig();
+  res.json({
+    // Company name is display-only — set by IT during hosting setup
+    companyName: config.clientCompanyName,
+    companyNameEditable: false,
+    companyNameHint: 'Company name is set by IT in hosting setup (COMPANY_NAME / data/company.json).',
+    branding: toPublicConfig(config).branding,
+  });
+});
+
+app.put('/api/admin/settings/branding', requireAdmin, async (req, res) => {
+  try {
+    const { primaryColor, accentColor, targetColor } = req.body ?? {};
+    const config = await updateBrandingSettings({ primaryColor, accentColor, targetColor });
+    res.json({ ok: true, branding: toPublicConfig(config).branding });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : 'Invalid branding' });
+  }
+});
+
+app.post('/api/admin/settings/logo', requireAdmin, async (req, res) => {
+  try {
+    const { filename, imageBase64 } = req.body ?? {};
+    if (!imageBase64) {
+      res.status(400).json({ error: 'imageBase64 is required' });
+      return;
+    }
+    const config = await saveUploadedLogo({ filename, base64Data: imageBase64 });
+    res.json({ ok: true, branding: toPublicConfig(config).branding });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : 'Logo upload failed' });
+  }
+});
+
+app.delete('/api/admin/settings/logo', requireAdmin, async (_req, res) => {
+  try {
+    const config = await clearUploadedLogo();
+    res.json({ ok: true, branding: toPublicConfig(config).branding });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : 'Could not remove logo' });
+  }
 });
 
 const PORT = Number(process.env.PORT ?? 3001);

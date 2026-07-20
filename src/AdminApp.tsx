@@ -4,21 +4,26 @@ import {
   downloadEmployeesTemplate,
   downloadSessionsCsv,
   fetchAdminSessions,
+  fetchAdminSettings,
   fetchNotifications,
   getStoredAdminKey,
   importEmployeesCsv,
   markAllNotificationsRead,
   markNotificationRead,
   previewEmployeesImport,
+  removeAdminLogo,
+  saveBrandingColors,
   type AdminNotification,
   type AdminSessionRow,
+  type AdminSettings,
   type EmployeeImportPreview,
+  uploadAdminLogo,
   verifyAdminKey,
 } from './adminApi';
 import { useAppConfig } from './hooks/useAppConfig';
 import './index.css';
 
-type AdminTab = 'notifications' | 'sessions' | 'employees';
+type AdminTab = 'notifications' | 'sessions' | 'employees' | 'settings';
 
 export default function AdminApp() {
   const { config } = useAppConfig();
@@ -39,6 +44,14 @@ export default function AdminApp() {
   const [importBusy, setImportBusy] = useState(false);
   const [importMessage, setImportMessage] = useState('');
   const [importError, setImportError] = useState('');
+
+  const [settings, setSettings] = useState<AdminSettings | null>(null);
+  const [primaryColor, setPrimaryColor] = useState('#0c2340');
+  const [accentColor, setAccentColor] = useState('#3b82f6');
+  const [targetColor, setTargetColor] = useState('#ef4444');
+  const [settingsBusy, setSettingsBusy] = useState(false);
+  const [settingsMessage, setSettingsMessage] = useState('');
+  const [settingsError, setSettingsError] = useState('');
 
   const refreshNotifications = useCallback(async () => {
     if (!getStoredAdminKey()) return;
@@ -66,6 +79,21 @@ export default function AdminApp() {
     if (!authed || tab !== 'sessions') return;
     refreshSessions().catch(() => {});
   }, [authed, tab, flaggedOnly, refreshSessions]);
+
+  useEffect(() => {
+    if (!authed || tab !== 'settings') return;
+    setSettingsError('');
+    fetchAdminSettings()
+      .then((s) => {
+        setSettings(s);
+        setPrimaryColor(s.branding.primaryColor);
+        setAccentColor(s.branding.accentColor);
+        setTargetColor(s.branding.targetColor);
+      })
+      .catch((err) => {
+        setSettingsError(err instanceof Error ? err.message : 'Failed to load settings');
+      });
+  }, [authed, tab]);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
@@ -161,6 +189,63 @@ export default function AdminApp() {
     }
   }
 
+  async function handleSaveColors(e: React.FormEvent) {
+    e.preventDefault();
+    setSettingsBusy(true);
+    setSettingsMessage('');
+    setSettingsError('');
+    try {
+      const result = await saveBrandingColors({ primaryColor, accentColor, targetColor });
+      setSettings((prev) =>
+        prev ? { ...prev, branding: result.branding } : prev,
+      );
+      setSettingsMessage('Colours saved. Refresh the operator screen to see updates.');
+      // Apply immediately on this admin page too
+      document.documentElement.style.setProperty('--brand-primary', result.branding.primaryColor);
+      document.documentElement.style.setProperty('--accent', result.branding.accentColor);
+      document.documentElement.style.setProperty('--target', result.branding.targetColor);
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'Could not save colours');
+    } finally {
+      setSettingsBusy(false);
+    }
+  }
+
+  async function handleLogoUpload(file: File | null) {
+    if (!file) return;
+    setSettingsBusy(true);
+    setSettingsMessage('');
+    setSettingsError('');
+    try {
+      const result = await uploadAdminLogo(file);
+      setSettings((prev) =>
+        prev ? { ...prev, branding: result.branding } : prev,
+      );
+      setSettingsMessage('Logo uploaded. Refresh the operator screen to see it.');
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'Logo upload failed');
+    } finally {
+      setSettingsBusy(false);
+    }
+  }
+
+  async function handleLogoRemove() {
+    setSettingsBusy(true);
+    setSettingsMessage('');
+    setSettingsError('');
+    try {
+      const result = await removeAdminLogo();
+      setSettings((prev) =>
+        prev ? { ...prev, branding: result.branding } : prev,
+      );
+      setSettingsMessage('Logo removed.');
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'Could not remove logo');
+    } finally {
+      setSettingsBusy(false);
+    }
+  }
+
   return (
     <div className="app admin-app">
       <header className="header">
@@ -222,6 +307,13 @@ export default function AdminApp() {
               onClick={() => setTab('employees')}
             >
               Employees
+            </button>
+            <button
+              type="button"
+              className={tab === 'settings' ? 'tab active' : 'tab'}
+              onClick={() => setTab('settings')}
+            >
+              Settings
             </button>
           </div>
 
@@ -408,6 +500,105 @@ export default function AdminApp() {
                   </div>
                 ) : null}
               </div>
+            </main>
+          ) : null}
+
+          {tab === 'settings' ? (
+            <main className="main card">
+              <h2>Branding settings</h2>
+              <p className="muted">
+                Upload your logo and choose colours after purchase. Company name is set by IT during
+                hosting setup and cannot be changed here.
+              </p>
+
+              <div className="settings-block">
+                <label className="file-label">Company name (IT only)</label>
+                <input
+                  type="text"
+                  value={settings?.companyName ?? config.clientCompanyName ?? ''}
+                  disabled
+                  readOnly
+                />
+                <p className="muted tiny">
+                  {settings?.companyNameHint ??
+                    'Ask IT to set COMPANY_NAME in the server .env / install config.'}
+                </p>
+              </div>
+
+              <div className="settings-block">
+                <label className="file-label">Logo</label>
+                {settings?.branding.logoUrl ? (
+                  <div className="logo-preview-row">
+                    <img
+                      src={`${settings.branding.logoUrl}?t=${Date.now()}`}
+                      alt="Company logo"
+                      className="settings-logo-preview"
+                    />
+                    <button type="button" className="link-btn" disabled={settingsBusy} onClick={handleLogoRemove}>
+                      Remove logo
+                    </button>
+                  </div>
+                ) : (
+                  <p className="muted tiny">No logo uploaded yet.</p>
+                )}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp,image/gif,image/svg+xml"
+                  disabled={settingsBusy}
+                  onChange={(e) => handleLogoUpload(e.target.files?.[0] ?? null)}
+                />
+              </div>
+
+              <form className="settings-block" onSubmit={handleSaveColors}>
+                <label className="file-label">Brand colours</label>
+                <div className="color-grid">
+                  <label>
+                    Primary
+                    <input
+                      type="color"
+                      value={primaryColor}
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                    />
+                    <input
+                      type="text"
+                      value={primaryColor}
+                      onChange={(e) => setPrimaryColor(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Accent
+                    <input
+                      type="color"
+                      value={accentColor}
+                      onChange={(e) => setAccentColor(e.target.value)}
+                    />
+                    <input
+                      type="text"
+                      value={accentColor}
+                      onChange={(e) => setAccentColor(e.target.value)}
+                    />
+                  </label>
+                  <label>
+                    Target bubbles
+                    <input
+                      type="color"
+                      value={targetColor}
+                      onChange={(e) => setTargetColor(e.target.value)}
+                    />
+                    <input
+                      type="text"
+                      value={targetColor}
+                      onChange={(e) => setTargetColor(e.target.value)}
+                    />
+                  </label>
+                </div>
+                <button type="submit" disabled={settingsBusy}>
+                  {settingsBusy ? 'Saving…' : 'Save colours'}
+                </button>
+              </form>
+
+              {settingsMessage ? <p className="success">{settingsMessage}</p> : null}
+              {settingsError ? <p className="error">{settingsError}</p> : null}
             </main>
           ) : null}
         </>
