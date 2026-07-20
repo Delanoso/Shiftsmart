@@ -275,6 +275,6 @@ app.get('*', (req, res, next) => {
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`Fatigue checker API listening on http://localhost:${PORT}`);
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Fatigue checker listening on http://0.0.0.0:${PORT}`);
 });
