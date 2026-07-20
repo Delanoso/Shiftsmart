@@ -214,7 +214,7 @@ export default function App() {
       {phase === 'login' && (
         <main className="main card">
           <h2>Enter your clock number</h2>
-          <p className="muted">Your ID links this session to your employee record and baseline history.</p>
+          <p className="muted">This session is linked to your employee number and is recorded for your baseline history.</p>
           <form onSubmit={handleLogin} className="login-form">
             <label htmlFor="clock">Clock number</label>
             <input
