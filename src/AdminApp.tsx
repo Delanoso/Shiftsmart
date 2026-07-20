@@ -35,6 +35,7 @@ export default function AdminApp() {
   const [tab, setTab] = useState<AdminTab>('notifications');
   const [notifications, setNotifications] = useState<AdminNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+  const [unreadRedCount, setUnreadRedCount] = useState(0);
   const [sessions, setSessions] = useState<AdminSessionRow[]>([]);
   const [flaggedOnly, setFlaggedOnly] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -66,6 +67,7 @@ export default function AdminApp() {
     const data = await fetchNotifications(false);
     setNotifications(data.notifications);
     setUnreadCount(data.unreadCount);
+    setUnreadRedCount(data.unreadRedCount ?? 0);
   }, []);
 
   const refreshSessions = useCallback(async () => {
@@ -336,7 +338,7 @@ export default function AdminApp() {
               className={tab === 'notifications' ? 'tab active' : 'tab'}
               onClick={() => setTab('notifications')}
             >
-              Notifications {unreadCount > 0 ? `(${unreadCount})` : ''}
+              Notifications {unreadRedCount > 0 ? `(${unreadRedCount} red)` : unreadCount > 0 ? `(${unreadCount})` : ''}
             </button>
             <button
               type="button"
@@ -364,7 +366,7 @@ export default function AdminApp() {
           {tab === 'notifications' ? (
             <main className="main card">
               <div className="admin-toolbar">
-                <h2>Fatigue notifications</h2>
+                <h2>Session notifications</h2>
                 {unreadCount > 0 ? (
                   <button type="button" onClick={handleMarkAllRead}>
                     Mark all read
@@ -372,15 +374,23 @@ export default function AdminApp() {
                 ) : null}
               </div>
               <p className="muted tiny">
-                New fatigue flags from operator sessions appear here automatically (refreshes every 8s).
+                Every completed game appears here. <span className="legend-green">Green</span> = under
+                4 hits over 800ms and no misses. <span className="legend-red">Red</span> = 4+ hits
+                over 800ms, or any missed circle. Refreshes every 8s.
               </p>
               {notifications.length === 0 ? (
                 <p className="muted">No notifications yet.</p>
               ) : (
                 <ul className="notification-list">
                   {notifications.map((n) => (
-                    <li key={n.id} className={n.readAt ? 'notification read' : 'notification unread'}>
+                    <li
+                      key={n.id}
+                      className={`notification severity-${n.severity}${n.readAt ? ' read' : ' unread'}`}
+                    >
                       <div className="notification-head">
+                        <span className={`severity-badge ${n.severity}`}>
+                          {n.severity === 'red' ? 'Review' : 'OK'}
+                        </span>
                         <strong>{n.employeeName}</strong>
                         <span className="muted tiny">#{n.clockNumber}</span>
                         <span className="muted tiny">{new Date(n.createdAt).toLocaleString()}</span>
@@ -414,7 +424,7 @@ export default function AdminApp() {
                       checked={flaggedOnly}
                       onChange={(e) => setFlaggedOnly(e.target.checked)}
                     />
-                    Flagged only
+                    Flagged only (red)
                   </label>
                   <button type="button" onClick={() => downloadSessionsCsv(flaggedOnly)}>
                     Export CSV
@@ -429,23 +439,32 @@ export default function AdminApp() {
                       <th>Employee</th>
                       <th>Clock</th>
                       <th>Median</th>
+                      <th>Slow hits</th>
                       <th>Hits</th>
                       <th>Misses</th>
-                      <th>Flagged</th>
+                      <th>Status</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {sessions.map((s) => (
-                      <tr key={s.id} className={s.shouldAlert ? 'row-alert' : ''}>
+                    {sessions.map((s) => {
+                      const severity = s.severity ?? (s.shouldAlert ? 'red' : 'green');
+                      return (
+                      <tr key={s.id} className={severity === 'red' ? 'row-alert' : 'row-ok'}>
                         <td>{new Date(s.createdAt).toLocaleString()}</td>
                         <td>{s.employeeName}</td>
                         <td>{s.clockNumber}</td>
                         <td>{s.sessionMedianMs != null ? `${Math.round(s.sessionMedianMs)} ms` : '—'}</td>
+                        <td>{s.slowHits ?? '—'}</td>
                         <td>{s.clicks.length}</td>
                         <td>{s.misses}</td>
-                        <td>{s.shouldAlert ? 'Yes' : 'No'}</td>
+                        <td>
+                          <span className={`severity-badge ${severity}`}>
+                            {severity === 'red' ? 'Red' : 'Green'}
+                          </span>
+                        </td>
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

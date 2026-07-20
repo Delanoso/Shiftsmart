@@ -39,6 +39,7 @@ export interface AdminNotification {
   employeeName: string;
   message: string;
   reasons: string[];
+  severity: 'green' | 'red';
   readAt: string | null;
   createdAt: string;
 }
@@ -52,6 +53,8 @@ export interface AdminSessionRow {
   clicks: { reactionTimeMs: number }[];
   sessionMedianMs: number | null;
   shouldAlert: boolean;
+  severity?: 'green' | 'red';
+  slowHits?: number;
   alertReasons: string[];
 }
 
@@ -59,7 +62,11 @@ export async function fetchNotifications(unreadOnly = false) {
   const res = await adminFetch(
     `/api/admin/notifications?unreadOnly=${unreadOnly ? 'true' : 'false'}`,
   );
-  return res.json() as Promise<{ unreadCount: number; notifications: AdminNotification[] }>;
+  return res.json() as Promise<{
+    unreadCount: number;
+    unreadRedCount: number;
+    notifications: AdminNotification[];
+  }>;
 }
 
 export async function markNotificationRead(id: string) {

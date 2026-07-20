@@ -4,12 +4,16 @@ export function createAdminNotification({ session, evaluation }) {
   const db = getDb();
   const id = crypto.randomUUID();
   const name = session.employeeName ?? session.driverName;
-  const message = `Fatigue concern: ${name} (#${session.clockNumber}) — review required.`;
+  const severity = evaluation.severity === 'red' ? 'red' : 'green';
+  const message =
+    severity === 'red'
+      ? `Review required: ${name} (#${session.clockNumber})`
+      : `Session complete: ${name} (#${session.clockNumber}) — within range`;
 
   db.prepare(
     `INSERT INTO admin_notifications (
-      id, session_id, company_id, clock_number, driver_name, message, reasons_json, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, session_id, company_id, clock_number, driver_name, message, reasons_json, severity, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     session.id,
@@ -18,10 +22,11 @@ export function createAdminNotification({ session, evaluation }) {
     name,
     message,
     JSON.stringify(evaluation.alertReasons),
+    severity,
     new Date().toISOString(),
   );
 
-  return { id, message };
+  return { id, message, severity };
 }
 
 export function listNotifications({ unreadOnly = false, limit = 100 } = {}) {
@@ -38,6 +43,7 @@ export function listNotifications({ unreadOnly = false, limit = 100 } = {}) {
     employeeName: row.driver_name,
     message: row.message,
     reasons: JSON.parse(row.reasons_json),
+    severity: row.severity === 'red' ? 'red' : 'green',
     readAt: row.read_at,
     createdAt: row.created_at,
   }));
@@ -65,5 +71,14 @@ export function countUnreadNotifications() {
   const db = getDb();
   return db
     .prepare(`SELECT COUNT(*) AS c FROM admin_notifications WHERE read_at IS NULL`)
+    .get().c;
+}
+
+export function countUnreadRedNotifications() {
+  const db = getDb();
+  return db
+    .prepare(
+      `SELECT COUNT(*) AS c FROM admin_notifications WHERE read_at IS NULL AND severity = 'red'`,
+    )
     .get().c;
 }

@@ -42,12 +42,15 @@ export interface SessionResult {
     sessionMedianReactionTimeMs: number | null;
     sessionMeanReactionTimeMs: number | null;
     shouldAlert: boolean;
+    severity?: 'green' | 'red';
+    slowHits?: number;
     alertReasons: string[];
     alertPhoneConfigured: boolean;
   };
   alert: {
     sent: boolean;
     adminNotified?: boolean;
+    severity?: 'green' | 'red';
     notificationId?: string;
     webhookSent?: boolean;
     placeholder?: boolean;

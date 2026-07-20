@@ -335,22 +335,22 @@ export default function App() {
                 </div>
               </div>
 
-              {sessionResult.evaluation.shouldAlert ? (
+              {sessionResult.evaluation.severity === 'red' ||
+              sessionResult.evaluation.shouldAlert ? (
                 <div className="alert-banner" role="alert">
-                  <strong>Fatigue concern flagged</strong>
+                  <strong>Review required</strong>
                   <ul>
                     {sessionResult.evaluation.alertReasons.map((r) => (
                       <li key={r}>{r}</li>
                     ))}
                   </ul>
-                  {sessionResult.alert.adminNotified ? (
-                    <p className="muted tiny">Supervisor notified on the admin dashboard.</p>
-                  ) : sessionResult.evaluation.shouldAlert ? (
-                    <p className="muted tiny">Fatigue flagged for this session.</p>
-                  ) : null}
+                  <p className="muted tiny">Supervisor notified on the admin dashboard (red).</p>
                 </div>
               ) : (
-                <p className="success">Reaction times look within expected range for your baselines.</p>
+                <div className="ok-banner">
+                  <p className="success">Within range — fewer than 4 slow hits and no misses.</p>
+                  <p className="muted tiny">Supervisor notified on the admin dashboard (green).</p>
+                </div>
               )}
 
               <details className="click-log">

@@ -504,8 +504,56 @@ button:disabled {
 }
 
 .notification.unread {
-  border-color: rgba(248, 113, 113, 0.45);
-  background: rgba(248, 113, 113, 0.08);
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.notification.severity-green {
+  border-color: rgba(74, 222, 128, 0.45);
+  background: rgba(74, 222, 128, 0.1);
+}
+
+.notification.severity-red {
+  border-color: rgba(248, 113, 113, 0.55);
+  background: rgba(248, 113, 113, 0.12);
+}
+
+.severity-badge {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+}
+
+.severity-badge.green {
+  background: rgba(74, 222, 128, 0.2);
+  color: var(--success);
+}
+
+.severity-badge.red {
+  background: rgba(248, 113, 113, 0.25);
+  color: var(--danger);
+}
+
+.legend-green {
+  color: var(--success);
+  font-weight: 600;
+}
+
+.legend-red {
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.admin-table tr.row-ok {
+  background: rgba(74, 222, 128, 0.05);
+}
+
+.ok-banner {
+  margin: 0.75rem 0;
 }
 
 .notification-head {

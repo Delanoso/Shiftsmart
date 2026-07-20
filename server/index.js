@@ -23,6 +23,7 @@ import {
 } from './sessionStore.js';
 import {
   countUnreadNotifications,
+  countUnreadRedNotifications,
   createAdminNotification,
   listNotifications,
   markAllNotificationsRead,
@@ -35,34 +36,33 @@ const ALERT_PHONE_NUMBER = process.env.ALERT_PHONE_NUMBER ?? '';
 const KIOSK_EXIT_PIN = process.env.KIOSK_EXIT_PIN ?? '';
 
 async function deliverAlerts(session, evaluation) {
-  if (!evaluation.shouldAlert) {
-    return { sent: false, adminNotified: false };
-  }
-
+  // Every completed game notifies the supervisor dashboard
   const adminNotification = createAdminNotification({ session, evaluation });
   let webhookSent = false;
   let webhookError;
 
-  if (process.env.ALERT_WEBHOOK_URL) {
+  // Optional external webhook only for red (concern) sessions
+  if (evaluation.severity === 'red' && process.env.ALERT_WEBHOOK_URL) {
     const payload = {
       employee: session.employeeName,
       clockNumber: session.clockNumber,
       companyId: session.companyId,
       sessionId: session.id,
+      severity: evaluation.severity,
       reasons: evaluation.alertReasons,
+      slowHits: evaluation.slowHits,
       sessionMedianReactionTimeMs: evaluation.sessionMedianReactionTimeMs,
       at: new Date().toISOString(),
     };
     const result = await sendSupervisorAlert(payload);
     webhookSent = result.sent;
     webhookError = result.error;
-  } else if (ALERT_PHONE_NUMBER) {
-    console.warn('[Fatigue Alert — phone not wired]', session.clockNumber, session.employeeName);
   }
 
   return {
     sent: true,
     adminNotified: true,
+    severity: evaluation.severity,
     notificationId: adminNotification.id,
     webhookSent,
     webhookError,
@@ -154,11 +154,6 @@ app.post('/api/sessions', async (req, res) => {
   }
 
   const priorSessions = listSessionsForBaselines(employeesData.companyId);
-  const baselinesBefore = computeBaselines(
-    priorSessions,
-    employeesData.companyId,
-    String(clockNumber),
-  );
 
   const session = {
     id: crypto.randomUUID(),
@@ -177,7 +172,7 @@ app.post('/api/sessions', async (req, res) => {
     createdAt: new Date().toISOString(),
   };
 
-  const evaluation = evaluateSession(session, baselinesBefore);
+  const evaluation = evaluateSession(session);
   evaluation.alertConfigured = true;
   evaluation.alertPhoneConfigured = Boolean(process.env.ALERT_WEBHOOK_URL || ALERT_PHONE_NUMBER);
 
@@ -185,7 +180,7 @@ app.post('/api/sessions', async (req, res) => {
   const alertResult = await deliverAlerts(session, evaluation);
 
   const baselinesAfter = computeBaselines(
-    listSessionsForBaselines(employeesData.companyId),
+    [...priorSessions, session],
     employeesData.companyId,
     String(clockNumber),
   );
@@ -273,6 +268,7 @@ app.get('/api/admin/notifications', requireAdmin, (req, res) => {
   const unreadOnly = req.query.unreadOnly === 'true';
   res.json({
     unreadCount: countUnreadNotifications(),
+    unreadRedCount: countUnreadRedNotifications(),
     notifications: listNotifications({ unreadOnly, limit: 100 }),
   });
 });

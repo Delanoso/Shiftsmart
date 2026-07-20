@@ -45,11 +45,11 @@ export function insertSession(session, evaluation) {
     INSERT INTO sessions (
       id, company_id, clock_number, driver_name, duration_ms, misses,
       started_at, ended_at, created_at, session_median_ms, session_mean_ms,
-      should_alert, alert_reasons
+      should_alert, alert_reasons, severity, slow_hits
     ) VALUES (
       @id, @company_id, @clock_number, @driver_name, @duration_ms, @misses,
       @started_at, @ended_at, @created_at, @session_median_ms, @session_mean_ms,
-      @should_alert, @alert_reasons
+      @should_alert, @alert_reasons, @severity, @slow_hits
     )
   `);
 
@@ -73,6 +73,8 @@ export function insertSession(session, evaluation) {
       session_mean_ms: evaluation.sessionMeanReactionTimeMs,
       should_alert: evaluation.shouldAlert ? 1 : 0,
       alert_reasons: JSON.stringify(evaluation.alertReasons),
+      severity: evaluation.severity === 'red' ? 'red' : 'green',
+      slow_hits: evaluation.slowHits ?? 0,
     });
 
     session.clicks.forEach((c, i) => {
@@ -105,13 +107,15 @@ export function listAdminSessions({ flaggedOnly = false, limit = 200 } = {}) {
     sessionMedianMs: row.session_median_ms,
     sessionMeanMs: row.session_mean_ms,
     shouldAlert: Boolean(row.should_alert),
+    severity: row.severity === 'red' ? 'red' : 'green',
+    slowHits: row.slow_hits ?? 0,
     alertReasons: row.alert_reasons ? JSON.parse(row.alert_reasons) : [],
   }));
 }
 
 export function sessionsToCsv(sessions) {
   const header =
-    'createdAt,clockNumber,employeeName,misses,clickCount,medianMs,meanMs,shouldAlert,alertReasons';
+    'createdAt,clockNumber,employeeName,misses,clickCount,slowHits,medianMs,meanMs,severity,alertReasons';
   const lines = sessions.map((s) => {
     const reasons = (s.alertReasons ?? []).join(' | ').replace(/"/g, '""');
     const name = s.employeeName ?? s.driverName ?? '';
@@ -121,9 +125,10 @@ export function sessionsToCsv(sessions) {
       `"${name.replace(/"/g, '""')}"`,
       s.misses,
       s.clicks.length,
+      s.slowHits ?? '',
       s.sessionMedianMs ?? '',
       s.sessionMeanMs ?? '',
-      s.shouldAlert ? 'yes' : 'no',
+      s.severity ?? (s.shouldAlert ? 'red' : 'green'),
       `"${reasons}"`,
     ].join(',');
   });

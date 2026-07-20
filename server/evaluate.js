@@ -1,63 +1,57 @@
 import { median, mean } from './baselines.js';
 
-const ALERT_MARGIN_MS = Number(process.env.ALERT_MARGIN_MS ?? 150);
-const ALERT_COMPANY_FACTOR = Number(process.env.ALERT_COMPANY_FACTOR ?? 1.35);
 const POOR_REACTION_MS = Number(process.env.POOR_REACTION_MS ?? 800);
+/** Red if this many (or more) hits are at/above POOR_REACTION_MS */
+const RED_SLOW_HIT_COUNT = Number(process.env.RED_SLOW_HIT_COUNT ?? 4);
 
-export function evaluateSession(session, baselinesBefore) {
+/**
+ * Supervisor dashboard rules:
+ * - Every completed game creates a notification
+ * - Green: fewer than 4 hits over 800ms, and no missed circles
+ * - Red: 4+ hits over 800ms, OR any missed circle
+ */
+export function evaluateSession(session) {
   const reactionTimes = session.clicks.map((c) => c.reactionTimeMs);
   const sessionMedian = median(reactionTimes);
   const sessionMean = mean(reactionTimes);
-  const misses = session.misses ?? 0;
+  const misses = Number(session.misses ?? 0);
+  const slowHits = reactionTimes.filter((rt) => rt >= POOR_REACTION_MS).length;
 
   const reasons = [];
-  let shouldAlert = false;
+  let severity = 'green';
 
   if (reactionTimes.length === 0) {
-    shouldAlert = true;
+    severity = 'red';
     reasons.push('No targets hit during the session.');
   }
 
-  const poorClicks = reactionTimes.filter((rt) => rt >= POOR_REACTION_MS).length;
-  if (poorClicks > 0) {
-    shouldAlert = true;
-    reasons.push(`${poorClicks} reaction(s) at or above ${POOR_REACTION_MS} ms.`);
+  if (misses >= 1) {
+    severity = 'red';
+    reasons.push(`${misses} missed circle${misses === 1 ? '' : 's'}.`);
   }
 
-  if (misses >= 2) {
-    shouldAlert = true;
-    reasons.push(`${misses} missed targets (timeout).`);
-  }
-
-  const employeeBaseline = baselinesBefore.employee?.medianReactionTimeMs
-    ?? baselinesBefore.driver?.medianReactionTimeMs;
-  if (
-    employeeBaseline != null &&
-    sessionMedian != null &&
-    sessionMedian > employeeBaseline + ALERT_MARGIN_MS
-  ) {
-    shouldAlert = true;
+  if (slowHits >= RED_SLOW_HIT_COUNT) {
+    severity = 'red';
     reasons.push(
-      `Session median (${Math.round(sessionMedian)} ms) slower than your baseline (${Math.round(employeeBaseline)} ms).`,
+      `${slowHits} hit${slowHits === 1 ? '' : 's'} at or above ${POOR_REACTION_MS} ms (threshold: ${RED_SLOW_HIT_COUNT}+).`,
+    );
+  } else if (slowHits > 0) {
+    reasons.push(
+      `${slowHits} hit${slowHits === 1 ? '' : 's'} at or above ${POOR_REACTION_MS} ms (under the red threshold of ${RED_SLOW_HIT_COUNT}).`,
     );
   }
 
-  const companyBaseline = baselinesBefore.company.medianReactionTimeMs;
-  if (
-    companyBaseline != null &&
-    sessionMedian != null &&
-    sessionMedian > companyBaseline * ALERT_COMPANY_FACTOR
-  ) {
-    shouldAlert = true;
-    reasons.push(
-      `Session median (${Math.round(sessionMedian)} ms) well above company baseline (${Math.round(companyBaseline)} ms).`,
-    );
+  if (severity === 'green' && reasons.length === 0) {
+    reasons.push('Within expected range (fewer than 4 slow hits and no misses).');
   }
 
   return {
     sessionMedianReactionTimeMs: sessionMedian,
     sessionMeanReactionTimeMs: sessionMean,
-    shouldAlert,
+    slowHits,
+    poorReactionMs: POOR_REACTION_MS,
+    severity,
+    shouldAlert: severity === 'red',
     alertReasons: reasons,
   };
 }

@@ -67,6 +67,19 @@ function migrate(database) {
     CREATE INDEX IF NOT EXISTS idx_notifications_read ON admin_notifications(read_at);
     CREATE INDEX IF NOT EXISTS idx_notifications_created ON admin_notifications(created_at);
   `);
+
+  const notifCols = database.prepare(`PRAGMA table_info(admin_notifications)`).all();
+  if (!notifCols.some((c) => c.name === 'severity')) {
+    database.exec(`ALTER TABLE admin_notifications ADD COLUMN severity TEXT NOT NULL DEFAULT 'green'`);
+  }
+
+  const sessionCols = database.prepare(`PRAGMA table_info(sessions)`).all();
+  if (!sessionCols.some((c) => c.name === 'severity')) {
+    database.exec(`ALTER TABLE sessions ADD COLUMN severity TEXT NOT NULL DEFAULT 'green'`);
+  }
+  if (!sessionCols.some((c) => c.name === 'slow_hits')) {
+    database.exec(`ALTER TABLE sessions ADD COLUMN slow_hits INTEGER NOT NULL DEFAULT 0`);
+  }
 }
 
 export function migrateSessionsFromJsonIfNeeded() {
