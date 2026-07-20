@@ -462,8 +462,8 @@ export default function AdminApp() {
     <div className="app admin-app">
       <header className="header">
         <div>
-          <p className="eyebrow">{config.vendorName} — Admin</p>
           <h1>{config.productName}</h1>
+          <p className="eyebrow">Admin</p>
         </div>
         <div className="admin-header-actions">
           <a className="link-btn" href="/">

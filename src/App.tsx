@@ -197,7 +197,6 @@ export default function App() {
             <img src={config.branding.logoUrl} alt="" className="client-logo" />
           ) : null}
           <div>
-            <p className="eyebrow">{config.vendorName}</p>
             <h1>{config.productName}</h1>
           </div>
         </div>

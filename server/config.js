@@ -6,7 +6,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const COMPANY_PATH = path.join(__dirname, '..', 'data', 'company.json');
 
 const DEFAULTS = {
-  vendorName: 'Delano Solutions',
+  vendorName: '',
   productName: 'ShiftSmart Fatigue Check',
   clientCompanyId: 'company-1',
   clientCompanyName: 'Company',

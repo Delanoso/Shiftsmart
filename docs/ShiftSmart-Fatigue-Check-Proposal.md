@@ -1,14 +1,10 @@
-# Delano Solutions
+# ShiftSmart Fatigue Reaction Check
 
-**Safety & workforce technology**
+**Business proposal — confidential**
 
 ---
 
-## Business proposal — confidential
-
-# ShiftSmart Fatigue Reaction Check
-
-A fast, measurable pre-start screening tool for employees and equipment operators — built by **Delano Solutions** to help organisations reduce fatigue-related risk before work begins.
+A fast, measurable pre-start screening tool for employees and equipment operators — built to help organisations reduce fatigue-related risk before work begins.
 
 ---
 
@@ -51,9 +47,9 @@ A consistent, digital pre-start check that produces **objective data** instead o
 
 ---
 
-## Why Delano Solutions?
+## Why ShiftSmart?
 
-We combine practical field experience with a deployable product: operator identification, session storage, baseline logic, and a clear path to supervisor alerts — so the tool fits real transport and industrial operations, not just a one-off demo.
+Practical field workflow with a deployable product: operator identification, session storage, baseline logic, and a clear path to supervisor alerts — so the tool fits real transport and industrial operations, not just a one-off demo.
 
 ---
 
@@ -65,8 +61,8 @@ Integrate ShiftSmart into daily sign-on: complete the check before keys or equip
 
 ## Conclusion
 
-ShiftSmart helps organisations act **before** incidents by turning fatigue risk into measurable, trackable data. **Delano Solutions** invites you to pilot the system with your employee roster and tailor thresholds, branding, and alert workflows to your safety program.
+ShiftSmart helps organisations act **before** incidents by turning fatigue risk into measurable, trackable data. We invite you to pilot the system with your employee roster and tailor thresholds, branding, and alert workflows to your safety program.
 
 ---
 
-*Delano Solutions · ShiftSmart Fatigue Reaction Check — business proposal*
+*ShiftSmart Fatigue Reaction Check — business proposal*

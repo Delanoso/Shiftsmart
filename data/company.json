@@ -1,5 +1,5 @@
 {
-  "vendorName": "Delano Solutions",
+  "vendorName": "",
   "productName": "ShiftSmart Fatigue Check",
   "clientCompanyId": "company-1",
   "clientCompanyName": "Your Company Name",
@@ -12,5 +12,8 @@
     "logoPath": ""
   },
   "disclaimer": "This check is an operational screening aid only. It does not replace medical assessment or your company's fitness-for-work policies. Supervisors make final decisions.",
-  "sites": []
+  "sites": [
+    "Main Depot",
+    "North Yard"
+  ]
 }

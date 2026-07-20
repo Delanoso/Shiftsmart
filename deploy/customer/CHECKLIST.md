@@ -45,4 +45,4 @@ Use this when handing over an Option 2 install.
 | Role | Name | Date |
 |------|------|------|
 | Customer safety lead | | |
-| Delano Solutions | | |
+| Supplier | | |

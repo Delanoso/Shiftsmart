@@ -4,7 +4,7 @@
 
 ## Grant
 
-Delano Solutions grants **Customer** a non-exclusive, non-transferable license to install and use one (1) copy of the ShiftSmart Fatigue Reaction Check software (**“Software”**) for Customer’s internal business operations at the deployment described in the order.
+The **Licensor** grants **Customer** a non-exclusive, non-transferable license to install and use one (1) copy of the ShiftSmart Fatigue Reaction Check software (**“Software”**) for Customer’s internal business operations at the deployment described in the order.
 
 ## Scope
 
@@ -13,7 +13,7 @@ Delano Solutions grants **Customer** a non-exclusive, non-transferable license t
 
 ## Data
 
-Customer data (sessions, rosters) remains Customer’s responsibility. Delano Solutions is not liable for Customer’s employment or safety decisions based on Software output.
+Customer data (sessions, rosters) remains Customer’s responsibility. The Licensor is not liable for Customer’s employment or safety decisions based on Software output.
 
 ## Support & updates
 
@@ -25,5 +25,5 @@ Software is a **screening aid**, not a medical device or sole determinant of fit
 
 ---
 
-Vendor: **Delano Solutions**  
+Vendor: **[Licensor]**  
 Product: **ShiftSmart Fatigue Reaction Check**

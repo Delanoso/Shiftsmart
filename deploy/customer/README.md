@@ -28,7 +28,7 @@ Each **customer company** receives:
 
 - Perpetual license for **one organisation** / one deployment
 - Customer owns their server and data
-- Delano Solutions retains IP in the software
+- Supplier retains IP in the software
 - Optional paid: updates, support, extra sites, SMS integration
 
 ## Licensing file

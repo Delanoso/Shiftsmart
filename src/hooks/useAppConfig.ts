@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { fetchPublicConfig, type PublicAppConfig } from '../api';
 
 const DEFAULT_CONFIG: PublicAppConfig = {
-  vendorName: 'Delano Solutions',
+  vendorName: '',
   productName: 'ShiftSmart Fatigue Check',
   clientCompanyName: '',
   supportEmail: '',
@@ -25,7 +25,9 @@ function applyBranding(config: PublicAppConfig) {
   root.style.setProperty('--brand-primary', config.branding.primaryColor);
   root.style.setProperty('--accent', config.branding.accentColor);
   root.style.setProperty('--target', config.branding.targetColor);
-  document.title = `${config.productName} — ${config.clientCompanyName || config.vendorName}`;
+  document.title = config.clientCompanyName
+    ? `${config.productName} — ${config.clientCompanyName}`
+    : config.productName;
 }
 
 export function useAppConfig() {

@@ -1,6 +1,6 @@
 # ShiftSmart — customer install (Option 2)
 
-Install a **dedicated copy** on the customer’s server or PC. Each sale gets its own instance, data, and branding. Delano Solutions supplies the package; the customer (or you on their behalf) runs this guide once.
+Install a **dedicated copy** on the customer’s server or PC. Each sale gets its own instance, data, and branding. The supplier provides the package; the customer (or you on their behalf) runs this guide once.
 
 ## Requirements
 
@@ -29,7 +29,7 @@ Edit `.env`:
 |--------|---------|
 | `COMPANY_NAME` | Customer name shown in the app |
 | `COMPANY_ID` | Internal ID (keep stable for data) |
-| `VENDOR_NAME` | Delano Solutions (or your brand) |
+| `VENDOR_NAME` | Optional (leave blank — not shown in the app) |
 | `PRODUCT_NAME` | App title |
 | `BRAND_*` | Colours |
 | `LOGO_PATH` | File in `public/` (e.g. `client-logo.png`) |
@@ -150,7 +150,7 @@ Default install key: **`ADMIN-API-KEY`** (change during setup).
 - Branding (logo + colours) on **Settings** — company name is set by IT at install only
 - Upload logo and set brand colours on the **Settings** tab (company name is set by IT at install)
 
-## 7. Updates (new version from Delano Solutions)
+## 7. Updates (new software version)
 
 1. Stop the service
 2. Back up `data/` and `.env`
@@ -169,4 +169,4 @@ Use **`CHECKLIST.md`** in this folder before go-live.
 
 ---
 
-**Delano Solutions** — ShiftSmart Fatigue Reaction Check
+**ShiftSmart Fatigue Reaction Check**
