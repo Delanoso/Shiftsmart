@@ -15,6 +15,9 @@ const ALERT_PHONE_NUMBER = process.env.ALERT_PHONE_NUMBER ?? '';
 /** Reaction time (ms) above personal baseline + this margin triggers alert */
 const ALERT_MARGIN_MS = Number(process.env.ALERT_MARGIN_MS ?? 150);
 
+/** Default driver baseline when there is no driver history yet */
+const DRIVER_BASELINE_START_MS = Number(process.env.DRIVER_BASELINE_START_MS ?? 550);
+
 /** Sessions worse than company median by this factor also trigger alert */
 const ALERT_COMPANY_FACTOR = Number(process.env.ALERT_COMPANY_FACTOR ?? 1.35);
 
@@ -69,7 +72,9 @@ function computeBaselines(sessions, companyId, clockNumber) {
     driver: {
       sessionCount: driverSessions.length,
       clickCount: driverReactionTimes.length,
-      medianReactionTimeMs: median(driverReactionTimes),
+      // When a driver has no history yet, use a reasonable starting baseline
+      // so we can still evaluate their first run.
+      medianReactionTimeMs: median(driverReactionTimes) ?? DRIVER_BASELINE_START_MS,
       meanReactionTimeMs: mean(driverReactionTimes),
     },
   };

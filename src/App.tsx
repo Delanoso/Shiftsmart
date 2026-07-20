@@ -131,7 +131,7 @@ export default function App() {
   const secondsLeft = Math.ceil(game.timeLeftMs / 1000);
 
   return (
-    <div className="app">
+    <div className={`app ${phase === 'playing' ? 'playing' : ''}`}>
       <header className="header">
         <div>
           <p className="eyebrow">ShiftSmart</p>
