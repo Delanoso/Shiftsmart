@@ -40,6 +40,7 @@ export interface AdminNotification {
   message: string;
   reasons: string[];
   severity: 'green' | 'red';
+  site?: string;
   readAt: string | null;
   createdAt: string;
 }
@@ -48,6 +49,7 @@ export interface AdminSessionRow {
   id: string;
   clockNumber: string;
   employeeName: string;
+  site?: string;
   createdAt: string;
   misses: number;
   clicks: { reactionTimeMs: number }[];
@@ -58,14 +60,32 @@ export interface AdminSessionRow {
   alertReasons: string[];
 }
 
-export async function fetchNotifications(unreadOnly = false) {
-  const res = await adminFetch(
-    `/api/admin/notifications?unreadOnly=${unreadOnly ? 'true' : 'false'}`,
-  );
+export interface EmployeeRow {
+  clockNumber: string;
+  name: string;
+  site?: string;
+}
+
+export interface AuditLogRow {
+  id: string;
+  action: string;
+  actor: string;
+  ip: string;
+  details: Record<string, unknown>;
+  createdAt: string;
+}
+
+export async function fetchNotifications(unreadOnly = false, site = 'all') {
+  const params = new URLSearchParams({
+    unreadOnly: unreadOnly ? 'true' : 'false',
+    site,
+  });
+  const res = await adminFetch(`/api/admin/notifications?${params}`);
   return res.json() as Promise<{
     unreadCount: number;
     unreadRedCount: number;
     notifications: AdminNotification[];
+    sites: string[];
   }>;
 }
 
@@ -79,16 +99,25 @@ export async function markAllNotificationsRead() {
   return res.json();
 }
 
-export async function fetchAdminSessions(flaggedOnly = false) {
-  const res = await adminFetch(`/api/admin/sessions?flaggedOnly=${flaggedOnly ? 'true' : 'false'}`);
+export async function fetchAdminSessions(flaggedOnly = false, site = 'all') {
+  const params = new URLSearchParams({
+    flaggedOnly: flaggedOnly ? 'true' : 'false',
+    site,
+  });
+  const res = await adminFetch(`/api/admin/sessions?${params}`);
   const data = await res.json();
-  return data.sessions as AdminSessionRow[];
+  return {
+    sessions: data.sessions as AdminSessionRow[],
+    sites: (data.sites ?? []) as string[],
+  };
 }
 
-export async function downloadSessionsCsv(flaggedOnly = false) {
-  const res = await adminFetch(
-    `/api/admin/sessions/export.csv?flaggedOnly=${flaggedOnly ? 'true' : 'false'}`,
-  );
+export async function downloadSessionsCsv(flaggedOnly = false, site = 'all') {
+  const params = new URLSearchParams({
+    flaggedOnly: flaggedOnly ? 'true' : 'false',
+    site,
+  });
+  const res = await adminFetch(`/api/admin/sessions/export.csv?${params}`);
   const blob = await res.blob();
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -102,7 +131,7 @@ export interface EmployeeImportPreview {
   ok: boolean;
   errors: string[];
   summary: { totalRows: number; validEmployees: number; finalEmployeeCount?: number };
-  preview: { clockNumber: string; name: string }[];
+  preview: EmployeeRow[];
 }
 
 export interface EmployeeImportResult {
@@ -164,39 +193,78 @@ export async function importEmployeesCsv(payload: {
   return body;
 }
 
-export async function fetchEmployeeRoster() {
-  const res = await adminFetch('/api/admin/employees');
+export async function fetchEmployeeRoster(site = 'all') {
+  const params = new URLSearchParams({ site });
+  const res = await adminFetch(`/api/admin/employees?${params}`);
   return res.json() as Promise<{
-    employees: { clockNumber: string; name: string }[];
+    employees: EmployeeRow[];
     employeeCount: number;
+    sites: string[];
   }>;
 }
 
-export async function addEmployeeOne(payload: { clockNumber: string; name: string }) {
+async function employeeMutation<T>(input: string, init: RequestInit): Promise<T> {
   const key = getStoredAdminKey();
-  const headers = new Headers({ 'Content-Type': 'application/json' });
+  const headers = new Headers(init.headers);
   if (key) headers.set('X-Admin-Key', key);
+  if (init.body && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
 
-  const res = await fetch('/api/admin/employees', {
-    method: 'POST',
-    headers,
-    body: JSON.stringify(payload),
-  });
-
+  const res = await fetch(input, { ...init, headers });
   if (res.status === 401) {
     clearStoredAdminKey();
     throw new Error('Invalid admin key');
   }
-
   const body = await res.json().catch(() => ({}));
   if (!res.ok) {
-    throw new Error(body.error ?? `Could not add employee (${res.status})`);
+    throw new Error(body.error ?? `Request failed (${res.status})`);
   }
-  return body as {
+  return body as T;
+}
+
+export async function addEmployeeOne(payload: {
+  clockNumber: string;
+  name: string;
+  site?: string;
+}) {
+  return employeeMutation<{
     ok: true;
-    employee: { clockNumber: string; name: string };
+    employee: EmployeeRow;
     employeeCount: number;
-  };
+  }>('/api/admin/employees', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateEmployeeOne(
+  clockNumber: string,
+  payload: { name?: string; site?: string; newClockNumber?: string },
+) {
+  return employeeMutation<{
+    ok: true;
+    employee: EmployeeRow;
+    employeeCount: number;
+  }>(`/api/admin/employees/${encodeURIComponent(clockNumber)}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deleteEmployeeOne(clockNumber: string) {
+  return employeeMutation<{
+    ok: true;
+    deleted: EmployeeRow;
+    employeeCount: number;
+  }>(`/api/admin/employees/${encodeURIComponent(clockNumber)}`, {
+    method: 'DELETE',
+  });
+}
+
+export async function fetchAuditLogs(limit = 200) {
+  const res = await adminFetch(`/api/admin/audit?limit=${limit}`);
+  return res.json() as Promise<{ logs: AuditLogRow[] }>;
 }
 
 export async function verifyAdminKey(key: string) {
@@ -220,11 +288,13 @@ export interface AdminSettings {
     targetColor: string;
     logoUrl: string | null;
   };
+  sites: string[];
 }
 
 export async function fetchAdminSettings(): Promise<AdminSettings> {
   const res = await adminFetch('/api/admin/settings');
-  return res.json();
+  const data = await res.json();
+  return { ...data, sites: data.sites ?? [] };
 }
 
 export async function saveBrandingColors(payload: {
@@ -237,6 +307,14 @@ export async function saveBrandingColors(payload: {
     body: JSON.stringify(payload),
   });
   return res.json() as Promise<{ ok: boolean; branding: AdminSettings['branding'] }>;
+}
+
+export async function saveSitesList(sites: string[]) {
+  const res = await adminFetch('/api/admin/settings/sites', {
+    method: 'PUT',
+    body: JSON.stringify({ sites }),
+  });
+  return res.json() as Promise<{ ok: boolean; sites: string[] }>;
 }
 
 export async function uploadAdminLogo(file: File) {

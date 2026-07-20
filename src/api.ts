@@ -16,6 +16,7 @@ export interface PublicAppConfig {
   kioskMode: boolean;
   kioskResultsSeconds: number;
   kioskRequireExitPin: boolean;
+  sites?: string[];
 }
 
 const API = '/api';

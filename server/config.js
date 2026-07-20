@@ -20,6 +20,7 @@ const DEFAULTS = {
   },
   disclaimer:
     'This check is an operational screening aid only. It does not replace medical assessment or your company fitness-for-work policies.',
+  sites: [],
 };
 
 function envOr(value, envKey) {
@@ -85,6 +86,9 @@ export async function loadCompanyConfig() {
     kioskMode: envBool(fileConfig.kioskMode, 'KIOSK_MODE', false),
     kioskResultsSeconds: envInt(fileConfig.kioskResultsSeconds, 'KIOSK_RESULTS_SECONDS', 12),
     kioskRequireExitPin: envBool(fileConfig.kioskRequireExitPin, 'KIOSK_REQUIRE_EXIT_PIN', true),
+    sites: Array.isArray(fileConfig.sites)
+      ? fileConfig.sites.map((s) => String(s).trim()).filter(Boolean)
+      : [],
   };
 
   return merged;
@@ -109,6 +113,7 @@ export function toPublicConfig(config) {
     kioskMode: config.kioskMode,
     kioskResultsSeconds: config.kioskResultsSeconds,
     kioskRequireExitPin: Boolean(process.env.KIOSK_EXIT_PIN) && config.kioskRequireExitPin,
+    sites: config.sites ?? [],
   };
 }
 
@@ -201,6 +206,16 @@ export async function clearUploadedLogo() {
     }
   }
   return updateBrandingSettings({ logoPath: '' });
+}
+
+export async function updateSites(sites) {
+  if (!Array.isArray(sites)) throw new Error('sites must be an array');
+  const cleaned = [
+    ...new Set(sites.map((s) => String(s).trim()).filter(Boolean)),
+  ].sort((a, b) => a.localeCompare(b));
+  const current = await readCompanyFile();
+  await writeCompanyFile({ ...current, sites: cleaned });
+  return loadCompanyConfig();
 }
 
 export async function syncEmployeesCompanyMeta() {

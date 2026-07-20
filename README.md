@@ -82,8 +82,9 @@ Example preview body:
 
 | File | Purpose |
 |------|---------|
-| `data/employees.json` | Company + employee roster (clock number, name) |
-| `data/shiftsmart.db` | SQLite: sessions, clicks, admin notifications |
+| `data/employees.json` | Company + employee roster (clock number, name, site) |
+| `data/shiftsmart.db` | SQLite: sessions, clicks, admin notifications, audit log |
+| `data/company.json` | Branding + configured sites/depots |
 
 Baselines are computed from stored sessions when a run finishes. On first startup, existing `data/sessions.json` is migrated into SQLite if the database is empty.
 
@@ -93,8 +94,11 @@ Baselines are computed from stored sessions when a run finishes. On first startu
 - Set **`ADMIN_API_KEY`** on the server (default install key is `ADMIN-API-KEY` — change it during setup); supervisors enter it once per browser session
 - Fatigue flags automatically create notifications on the admin page (no SMS required)
 - Export session history as CSV from the admin **Sessions** tab
-- Import employees from CSV on the admin **Employees** tab (preview + replace/append)
-- Branding: upload logo and set colours on the admin **Settings** tab (company name is set by IT at install)
+- Import, edit, and delete employees on the admin **Employees** tab (CSV supports optional `site` / depot)
+- Filter notifications, sessions, and employees by **site / depot**
+- Branding + site list: admin **Settings** tab (company name is set by IT at install)
+- **Audit** tab logs roster/branding changes and completed sessions
+- API rate limits protect `/api`, game submissions, and admin routes (`RATE_LIMIT_*` env vars)
 
 ## Alert configuration
 
@@ -108,6 +112,9 @@ Set environment variables on the server:
 | `ALERT_MARGIN_MS` | Ms above personal baseline median to flag (default `150`) |
 | `ALERT_COMPANY_FACTOR` | Multiplier vs company median (default `1.35`) |
 | `POOR_REACTION_MS` | Single-click threshold (default `800`) |
+| `RATE_LIMIT_API_MAX` | Max `/api` requests per IP per minute (default `180`) |
+| `RATE_LIMIT_SESSION_MAX` | Max game submissions per IP per minute (default `20`) |
+| `RATE_LIMIT_ADMIN_MAX` | Max admin API requests per IP per minute (default `240`) |
 
 ## Game flow
 
@@ -122,7 +129,11 @@ Set environment variables on the server:
 - `GET /api/company` — company info  
 - `GET /api/employees/:clockNumber` — employee lookup  
 - `GET /api/baselines/:clockNumber` — current baselines  
-- `GET /api/admin/employees/template.csv` — CSV template for bulk driver import  
+- `GET /api/admin/employees/template.csv` — CSV template for bulk employee import  
 - `POST /api/admin/employees/import/preview` — validate CSV without saving  
 - `POST /api/admin/employees/import` — import employees from CSV  
+- `PUT /api/admin/employees/:clockNumber` — edit employee  
+- `DELETE /api/admin/employees/:clockNumber` — delete employee  
+- `GET /api/admin/audit` — audit log  
+- `PUT /api/admin/settings/sites` — manage site/depot list  
 - `POST /api/sessions` — save session body: `{ clockNumber, durationMs, clicks[], misses, startedAt, endedAt }`

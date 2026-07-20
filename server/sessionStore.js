@@ -6,6 +6,7 @@ function rowToSession(row, clicks) {
     companyId: row.company_id,
     clockNumber: row.clock_number,
     employeeName: row.driver_name,
+    site: row.site || '',
     durationMs: row.duration_ms,
     misses: row.misses,
     startedAt: row.started_at,
@@ -45,11 +46,11 @@ export function insertSession(session, evaluation) {
     INSERT INTO sessions (
       id, company_id, clock_number, driver_name, duration_ms, misses,
       started_at, ended_at, created_at, session_median_ms, session_mean_ms,
-      should_alert, alert_reasons, severity, slow_hits
+      should_alert, alert_reasons, severity, slow_hits, site
     ) VALUES (
       @id, @company_id, @clock_number, @driver_name, @duration_ms, @misses,
       @started_at, @ended_at, @created_at, @session_median_ms, @session_mean_ms,
-      @should_alert, @alert_reasons, @severity, @slow_hits
+      @should_alert, @alert_reasons, @severity, @slow_hits, @site
     )
   `);
 
@@ -75,6 +76,7 @@ export function insertSession(session, evaluation) {
       alert_reasons: JSON.stringify(evaluation.alertReasons),
       severity: evaluation.severity === 'red' ? 'red' : 'green',
       slow_hits: evaluation.slowHits ?? 0,
+      site: session.site ?? '',
     });
 
     session.clicks.forEach((c, i) => {
@@ -90,13 +92,21 @@ export function insertSession(session, evaluation) {
   tx();
 }
 
-export function listAdminSessions({ flaggedOnly = false, limit = 200 } = {}) {
+export function listAdminSessions({ flaggedOnly = false, site, limit = 200 } = {}) {
   const db = getDb();
+  const clauses = [];
+  const params = [];
+  if (flaggedOnly) clauses.push(`should_alert = 1`);
+  if (site && site !== 'all') {
+    clauses.push(`site = ?`);
+    params.push(site);
+  }
   let sql = `SELECT * FROM sessions`;
-  if (flaggedOnly) sql += ` WHERE should_alert = 1`;
+  if (clauses.length) sql += ` WHERE ${clauses.join(' AND ')}`;
   sql += ` ORDER BY datetime(created_at) DESC LIMIT ?`;
+  params.push(limit);
 
-  const rows = db.prepare(sql).all(limit);
+  const rows = db.prepare(sql).all(...params);
   const clickStmt = db.prepare(
     `SELECT click_index, reaction_time_ms, target_size_px FROM session_clicks
      WHERE session_id = ? ORDER BY click_index ASC`,
@@ -113,9 +123,19 @@ export function listAdminSessions({ flaggedOnly = false, limit = 200 } = {}) {
   }));
 }
 
+export function listSessionSites() {
+  const db = getDb();
+  return db
+    .prepare(
+      `SELECT DISTINCT site FROM sessions WHERE site IS NOT NULL AND site != '' ORDER BY site ASC`,
+    )
+    .all()
+    .map((r) => r.site);
+}
+
 export function sessionsToCsv(sessions) {
   const header =
-    'createdAt,clockNumber,employeeName,misses,clickCount,slowHits,medianMs,meanMs,severity,alertReasons';
+    'createdAt,clockNumber,employeeName,site,misses,clickCount,slowHits,medianMs,meanMs,severity,alertReasons';
   const lines = sessions.map((s) => {
     const reasons = (s.alertReasons ?? []).join(' | ').replace(/"/g, '""');
     const name = s.employeeName ?? s.driverName ?? '';
@@ -123,6 +143,7 @@ export function sessionsToCsv(sessions) {
       s.createdAt,
       s.clockNumber,
       `"${name.replace(/"/g, '""')}"`,
+      `"${(s.site || '').replace(/"/g, '""')}"`,
       s.misses,
       s.clicks.length,
       s.slowHits ?? '',

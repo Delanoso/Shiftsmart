@@ -42,9 +42,9 @@ You can instead (or also) edit **`data/company.json`** for the same fields; **`.
 Roster starts empty. Prepare CSV:
 
 ```csv
-clockNumber,name
-E1001,Jane Smith
-E1002,John Doe
+clockNumber,name,site
+E1001,Jane Smith,Main Depot
+E1002,John Doe,North Yard
 ```
 
 Import via Admin → **Employees** after login, or CLI:
@@ -128,8 +128,9 @@ Test with [webhook.site](https://webhook.site) during setup, then point to the c
 
 Back up regularly:
 
-- `data/shiftsmart.db` (SQLite — sessions, clicks, admin notifications)
+- `data/shiftsmart.db` (SQLite — sessions, clicks, admin notifications, audit log)
 - `data/employees.json`
+- `data/company.json` (branding + sites/depots)
 - `data/company.json`
 - `.env` (secure storage)
 
@@ -143,7 +144,10 @@ Default install key: **`ADMIN-API-KEY`** (change during setup).
 
 - Fatigue flags create **admin notifications** automatically (no SMS required)
 - Review session history and **export CSV**
-- Import the employee roster from CSV on the **Employees** tab (no CLI required)
+- Import, **edit**, and **delete** employees on the **Employees** tab (CSV may include optional `site` / depot)
+- Filter by **site / depot** on Notifications, Sessions, and Employees
+- Configure sites under **Settings**; review changes on the **Audit** tab
+- Branding (logo + colours) on **Settings** — company name is set by IT at install only
 - Upload logo and set brand colours on the **Settings** tab (company name is set by IT at install)
 
 ## 7. Updates (new version from Delano Solutions)

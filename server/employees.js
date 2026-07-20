@@ -55,7 +55,11 @@ function resolveHeaderIndex(headers, candidates) {
 }
 
 function normalizeRoster(data) {
-  const employees = data.employees ?? data.drivers ?? [];
+  const employees = (data.employees ?? data.drivers ?? []).map((e) => ({
+    clockNumber: String(e.clockNumber),
+    name: String(e.name),
+    site: String(e.site ?? e.depot ?? '').trim(),
+  }));
   return {
     companyId: data.companyId ?? 'company-1',
     companyName: data.companyName ?? 'Company',
@@ -107,6 +111,7 @@ export function parseEmployeesCsv(csvText) {
     'driverName',
     'fullname',
   ]);
+  const siteIndex = resolveHeaderIndex(headers, ['site', 'depot', 'location', 'yard']);
 
   const errors = [];
   if (clockIndex < 0) errors.push('Missing required clock number column.');
@@ -126,9 +131,11 @@ export function parseEmployeesCsv(csvText) {
     const row = splitCsvLine(lines[rowIndex]);
     const rawClockNumber = row[clockIndex] ?? '';
     const rawName = row[nameIndex] ?? '';
+    const rawSite = siteIndex >= 0 ? row[siteIndex] ?? '' : '';
 
     const clockNumber = rawClockNumber.replace(/\s+/g, '');
     const name = rawName.trim();
+    const site = String(rawSite).trim();
 
     if (!clockNumber || !name) {
       errors.push(`Row ${rowIndex + 1}: clock number and name are required.`);
@@ -148,7 +155,7 @@ export function parseEmployeesCsv(csvText) {
     }
 
     seenClockNumbers.add(clockNumber);
-    employees.push({ clockNumber, name });
+    employees.push({ clockNumber, name, site });
   }
 
   return {
@@ -225,10 +232,11 @@ export async function importEmployeesFromCsv({
   };
 }
 
-export async function addEmployee({ clockNumber, name }) {
+export async function addEmployee({ clockNumber, name, site = '' }) {
   const current = await readEmployeesFile();
   const normalizedClock = String(clockNumber ?? '').replace(/\s+/g, '');
   const normalizedName = String(name ?? '').trim();
+  const normalizedSite = String(site ?? '').trim();
 
   if (!normalizedClock || !normalizedName) {
     return { ok: false, error: 'Clock number and name are required' };
@@ -240,7 +248,11 @@ export async function addEmployee({ clockNumber, name }) {
     return { ok: false, error: `Clock number ${normalizedClock} already exists` };
   }
 
-  const employee = { clockNumber: normalizedClock, name: normalizedName };
+  const employee = {
+    clockNumber: normalizedClock,
+    name: normalizedName,
+    site: normalizedSite,
+  };
   const nextData = {
     ...current,
     employees: [...current.employees, employee],
@@ -254,18 +266,78 @@ export async function addEmployee({ clockNumber, name }) {
   };
 }
 
-export async function listEmployees() {
+export async function updateEmployee(clockNumber, { name, site, newClockNumber }) {
+  const current = await readEmployeesFile();
+  const key = String(clockNumber ?? '').replace(/\s+/g, '');
+  const index = current.employees.findIndex((e) => e.clockNumber === key);
+  if (index < 0) {
+    return { ok: false, error: 'Employee not found' };
+  }
+
+  const existing = current.employees[index];
+  const nextClock = String(newClockNumber ?? existing.clockNumber).replace(/\s+/g, '');
+  const nextName = name != null ? String(name).trim() : existing.name;
+  const nextSite = site != null ? String(site).trim() : existing.site ?? '';
+
+  if (!nextClock || !nextName) {
+    return { ok: false, error: 'Clock number and name are required' };
+  }
+  if (!/^[a-zA-Z0-9]+$/.test(nextClock)) {
+    return { ok: false, error: 'Clock number must use letters and numbers only' };
+  }
+  if (
+    nextClock !== key &&
+    current.employees.some((e) => e.clockNumber === nextClock)
+  ) {
+    return { ok: false, error: `Clock number ${nextClock} already exists` };
+  }
+
+  const employee = { clockNumber: nextClock, name: nextName, site: nextSite };
+  const employees = [...current.employees];
+  employees[index] = employee;
+  await writeEmployeesFile({ ...current, employees });
+
+  return { ok: true, employee, employeeCount: employees.length };
+}
+
+export async function deleteEmployee(clockNumber) {
+  const current = await readEmployeesFile();
+  const key = String(clockNumber ?? '').replace(/\s+/g, '');
+  const existing = current.employees.find((e) => e.clockNumber === key);
+  if (!existing) {
+    return { ok: false, error: 'Employee not found' };
+  }
+
+  const employees = current.employees.filter((e) => e.clockNumber !== key);
+  await writeEmployeesFile({ ...current, employees });
+  return { ok: true, deleted: existing, employeeCount: employees.length };
+}
+
+export async function listEmployees({ site } = {}) {
   const data = await readEmployeesFile();
+  let employees = [...data.employees];
+  if (site && site !== 'all') {
+    employees = employees.filter((e) => (e.site || '') === site);
+  }
+  employees.sort((a, b) =>
+    a.clockNumber.localeCompare(b.clockNumber, undefined, { numeric: true }),
+  );
+
+  const sites = [
+    ...new Set(data.employees.map((e) => e.site).filter(Boolean)),
+  ].sort((a, b) => a.localeCompare(b));
+
   return {
     companyId: data.companyId,
     companyName: data.companyName,
-    employees: [...data.employees].sort((a, b) =>
-      a.clockNumber.localeCompare(b.clockNumber, undefined, { numeric: true }),
-    ),
-    employeeCount: data.employees.length,
+    employees,
+    employeeCount: employees.length,
+    sites,
   };
 }
 
 export function buildEmployeesCsvTemplate() {
-  return ['clockNumber,name', 'E1001,Example Name', 'E1002,Example Name'].join('\n');
+  return ['clockNumber,name,site', 'E1001,Example Name,Main Depot', 'E1002,Example Name,North Yard'].join(
+    '\n',
+  );
 }

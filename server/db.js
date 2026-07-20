@@ -80,6 +80,27 @@ function migrate(database) {
   if (!sessionCols.some((c) => c.name === 'slow_hits')) {
     database.exec(`ALTER TABLE sessions ADD COLUMN slow_hits INTEGER NOT NULL DEFAULT 0`);
   }
+  if (!sessionCols.some((c) => c.name === 'site')) {
+    database.exec(`ALTER TABLE sessions ADD COLUMN site TEXT NOT NULL DEFAULT ''`);
+  }
+
+  if (!notifCols.some((c) => c.name === 'site')) {
+    database.exec(`ALTER TABLE admin_notifications ADD COLUMN site TEXT NOT NULL DEFAULT ''`);
+  }
+
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS audit_log (
+      id TEXT PRIMARY KEY,
+      action TEXT NOT NULL,
+      actor TEXT NOT NULL,
+      ip TEXT,
+      details_json TEXT NOT NULL,
+      created_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at);
+    CREATE INDEX IF NOT EXISTS idx_audit_action ON audit_log(action);
+    CREATE INDEX IF NOT EXISTS idx_sessions_site ON sessions(site);
+  `);
 }
 
 export function migrateSessionsFromJsonIfNeeded() {

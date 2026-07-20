@@ -17,6 +17,7 @@ const DEFAULT_CONFIG: PublicAppConfig = {
   kioskMode: false,
   kioskResultsSeconds: 12,
   kioskRequireExitPin: false,
+  sites: [],
 };
 
 function applyBranding(config: PublicAppConfig) {

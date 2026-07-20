@@ -9,9 +9,19 @@ import {
   parseEmployeesCsv,
   readEmployeesFile,
   addEmployee,
+  updateEmployee,
+  deleteEmployee,
   listEmployees,
 } from './employees.js';
-import { loadCompanyConfig, syncEmployeesCompanyMeta, toPublicConfig, updateBrandingSettings, saveUploadedLogo, clearUploadedLogo } from './config.js';
+import {
+  loadCompanyConfig,
+  syncEmployeesCompanyMeta,
+  toPublicConfig,
+  updateBrandingSettings,
+  saveUploadedLogo,
+  clearUploadedLogo,
+  updateSites,
+} from './config.js';
 import { migrateSessionsFromJsonIfNeeded } from './db.js';
 import { computeBaselines } from './baselines.js';
 import { evaluateSession } from './evaluate.js';
@@ -19,6 +29,7 @@ import {
   insertSession,
   listAdminSessions,
   listSessionsForBaselines,
+  listSessionSites,
   sessionsToCsv,
 } from './sessionStore.js';
 import {
@@ -30,11 +41,25 @@ import {
   markNotificationRead,
 } from './notifications.js';
 import { isAdminConfigured, requireAdmin } from './adminAuth.js';
+import { createRateLimiter } from './rateLimit.js';
+import { listAuditLogs, writeAuditLog } from './audit.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const ALERT_PHONE_NUMBER = process.env.ALERT_PHONE_NUMBER ?? '';
 const KIOSK_EXIT_PIN = process.env.KIOSK_EXIT_PIN ?? '';
 
+function clientIp(req) {
+  return req.headers['x-forwarded-for']?.toString().split(',')[0]?.trim() || req.ip || '';
+}
+
+function audit(req, action, details = {}) {
+  writeAuditLog({
+    action,
+    actor: req.header('x-admin-key') ? 'admin' : 'operator',
+    ip: clientIp(req),
+    details,
+  });
+}
 async function deliverAlerts(session, evaluation) {
   // Every completed game notifies the supervisor dashboard
   const adminNotification = createAdminNotification({ session, evaluation });
@@ -71,9 +96,29 @@ async function deliverAlerts(session, evaluation) {
 }
 
 const app = express();
+app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json({ limit: '4mb' }));
 
+const apiLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: Number(process.env.RATE_LIMIT_API_MAX ?? 180),
+  message: 'Too many requests. Please wait a moment and try again.',
+});
+const sessionLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: Number(process.env.RATE_LIMIT_SESSION_MAX ?? 20),
+  message: 'Too many game submissions from this device. Please wait a minute.',
+});
+const adminLimiter = createRateLimiter({
+  windowMs: 60_000,
+  max: Number(process.env.RATE_LIMIT_ADMIN_MAX ?? 240),
+  message: 'Too many admin requests. Please wait a moment.',
+});
+
+app.use('/api', apiLimiter);
+app.use('/api/sessions', sessionLimiter);
+app.use('/api/admin', adminLimiter);
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, adminConfigured: isAdminConfigured() });
 });
@@ -160,6 +205,7 @@ app.post('/api/sessions', async (req, res) => {
     companyId: employeesData.companyId,
     clockNumber: String(clockNumber),
     employeeName: employee.name,
+    site: employee.site || '',
     durationMs: durationMs ?? 30_000,
     clicks: clicks.map((c, i) => ({
       index: i,
@@ -178,6 +224,13 @@ app.post('/api/sessions', async (req, res) => {
 
   insertSession(session, evaluation);
   const alertResult = await deliverAlerts(session, evaluation);
+  audit(req, 'session.completed', {
+    clockNumber: session.clockNumber,
+    site: session.site,
+    severity: evaluation.severity,
+    slowHits: evaluation.slowHits,
+    misses: session.misses,
+  });
 
   const baselinesAfter = computeBaselines(
     [...priorSessions, session],
@@ -198,18 +251,49 @@ app.get('/api/admin/employees/template.csv', requireAdmin, (_req, res) => {
   res.send(buildEmployeesCsvTemplate());
 });
 
-app.get('/api/admin/employees', requireAdmin, async (_req, res) => {
-  res.json(await listEmployees());
+app.get('/api/admin/employees', requireAdmin, async (req, res) => {
+  const site = typeof req.query.site === 'string' ? req.query.site : 'all';
+  const listed = await listEmployees({ site });
+  const config = await loadCompanyConfig();
+  const sites = [...new Set([...(config.sites ?? []), ...(listed.sites ?? [])])].sort((a, b) =>
+    a.localeCompare(b),
+  );
+  res.json({ ...listed, sites });
 });
 
 app.post('/api/admin/employees', requireAdmin, async (req, res) => {
-  const { clockNumber, name } = req.body ?? {};
-  const result = await addEmployee({ clockNumber, name });
+  const { clockNumber, name, site } = req.body ?? {};
+  const result = await addEmployee({ clockNumber, name, site });
   if (!result.ok) {
     res.status(400).json(result);
     return;
   }
+  audit(req, 'employee.created', result.employee);
   res.status(201).json(result);
+});
+
+app.put('/api/admin/employees/:clockNumber', requireAdmin, async (req, res) => {
+  const { name, site, newClockNumber } = req.body ?? {};
+  const result = await updateEmployee(req.params.clockNumber, { name, site, newClockNumber });
+  if (!result.ok) {
+    res.status(404).json(result);
+    return;
+  }
+  audit(req, 'employee.updated', {
+    from: req.params.clockNumber,
+    employee: result.employee,
+  });
+  res.json(result);
+});
+
+app.delete('/api/admin/employees/:clockNumber', requireAdmin, async (req, res) => {
+  const result = await deleteEmployee(req.params.clockNumber);
+  if (!result.ok) {
+    res.status(404).json(result);
+    return;
+  }
+  audit(req, 'employee.deleted', result.deleted);
+  res.json(result);
 });
 
 app.post('/api/admin/employees/import/preview', requireAdmin, async (req, res) => {
@@ -247,18 +331,28 @@ app.post('/api/admin/employees/import', requireAdmin, async (req, res) => {
     return;
   }
 
+  audit(req, 'employee.import', {
+    validEmployees: result.summary?.validEmployees,
+    finalEmployeeCount: result.summary?.finalEmployeeCount,
+    replacedExisting: result.summary?.replacedExisting,
+  });
   res.status(201).json(result);
 });
 
 app.get('/api/admin/sessions', requireAdmin, (req, res) => {
   const flaggedOnly = req.query.flaggedOnly === 'true';
+  const site = typeof req.query.site === 'string' ? req.query.site : 'all';
   const limit = Math.min(Number(req.query.limit ?? 200), 500);
-  res.json({ sessions: listAdminSessions({ flaggedOnly, limit }) });
+  res.json({
+    sessions: listAdminSessions({ flaggedOnly, site, limit }),
+    sites: listSessionSites(),
+  });
 });
 
 app.get('/api/admin/sessions/export.csv', requireAdmin, (req, res) => {
   const flaggedOnly = req.query.flaggedOnly === 'true';
-  const sessions = listAdminSessions({ flaggedOnly, limit: 5000 });
+  const site = typeof req.query.site === 'string' ? req.query.site : 'all';
+  const sessions = listAdminSessions({ flaggedOnly, site, limit: 5000 });
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.setHeader('Content-Disposition', 'attachment; filename="shiftsmart-sessions.csv"');
   res.send(sessionsToCsv(sessions));
@@ -266,13 +360,14 @@ app.get('/api/admin/sessions/export.csv', requireAdmin, (req, res) => {
 
 app.get('/api/admin/notifications', requireAdmin, (req, res) => {
   const unreadOnly = req.query.unreadOnly === 'true';
+  const site = typeof req.query.site === 'string' ? req.query.site : 'all';
   res.json({
     unreadCount: countUnreadNotifications(),
     unreadRedCount: countUnreadRedNotifications(),
-    notifications: listNotifications({ unreadOnly, limit: 100 }),
+    notifications: listNotifications({ unreadOnly, site, limit: 100 }),
+    sites: listSessionSites(),
   });
 });
-
 app.patch('/api/admin/notifications/:id/read', requireAdmin, (req, res) => {
   const ok = markNotificationRead(req.params.id);
   if (!ok) {
@@ -289,12 +384,14 @@ app.post('/api/admin/notifications/read-all', requireAdmin, (_req, res) => {
 
 app.get('/api/admin/settings', requireAdmin, async (_req, res) => {
   const config = await loadCompanyConfig();
+  const publicConfig = toPublicConfig(config);
   res.json({
     // Company name is display-only — set by IT during hosting setup
     companyName: config.clientCompanyName,
     companyNameEditable: false,
     companyNameHint: 'Company name is set by IT in hosting setup (COMPANY_NAME / data/company.json).',
-    branding: toPublicConfig(config).branding,
+    branding: publicConfig.branding,
+    sites: publicConfig.sites ?? [],
   });
 });
 
@@ -302,10 +399,33 @@ app.put('/api/admin/settings/branding', requireAdmin, async (req, res) => {
   try {
     const { primaryColor, accentColor, targetColor } = req.body ?? {};
     const config = await updateBrandingSettings({ primaryColor, accentColor, targetColor });
-    res.json({ ok: true, branding: toPublicConfig(config).branding });
+    const branding = toPublicConfig(config).branding;
+    audit(req, 'branding.updated', {
+      primaryColor: branding.primaryColor,
+      accentColor: branding.accentColor,
+      targetColor: branding.targetColor,
+    });
+    res.json({ ok: true, branding });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : 'Invalid branding' });
   }
+});
+
+app.put('/api/admin/settings/sites', requireAdmin, async (req, res) => {
+  try {
+    const { sites } = req.body ?? {};
+    const config = await updateSites(sites);
+    const nextSites = toPublicConfig(config).sites ?? [];
+    audit(req, 'sites.updated', { sites: nextSites });
+    res.json({ ok: true, sites: nextSites });
+  } catch (err) {
+    res.status(400).json({ error: err instanceof Error ? err.message : 'Could not update sites' });
+  }
+});
+
+app.get('/api/admin/audit', requireAdmin, (req, res) => {
+  const limit = Math.min(Number(req.query.limit ?? 200), 500);
+  res.json({ logs: listAuditLogs({ limit }) });
 });
 
 app.post('/api/admin/settings/logo', requireAdmin, async (req, res) => {
@@ -316,15 +436,18 @@ app.post('/api/admin/settings/logo', requireAdmin, async (req, res) => {
       return;
     }
     const config = await saveUploadedLogo({ filename, base64Data: imageBase64 });
-    res.json({ ok: true, branding: toPublicConfig(config).branding });
+    const branding = toPublicConfig(config).branding;
+    audit(req, 'branding.logo_upload', { logoUrl: branding.logoUrl });
+    res.json({ ok: true, branding });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : 'Logo upload failed' });
   }
 });
 
-app.delete('/api/admin/settings/logo', requireAdmin, async (_req, res) => {
+app.delete('/api/admin/settings/logo', requireAdmin, async (req, res) => {
   try {
     const config = await clearUploadedLogo();
+    audit(req, 'branding.logo_remove', {});
     res.json({ ok: true, branding: toPublicConfig(config).branding });
   } catch (err) {
     res.status(400).json({ error: err instanceof Error ? err.message : 'Could not remove logo' });

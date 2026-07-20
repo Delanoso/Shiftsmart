@@ -12,8 +12,8 @@ export function createAdminNotification({ session, evaluation }) {
 
   db.prepare(
     `INSERT INTO admin_notifications (
-      id, session_id, company_id, clock_number, driver_name, message, reasons_json, severity, created_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      id, session_id, company_id, clock_number, driver_name, message, reasons_json, severity, site, created_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     session.id,
@@ -23,19 +23,28 @@ export function createAdminNotification({ session, evaluation }) {
     message,
     JSON.stringify(evaluation.alertReasons),
     severity,
+    session.site ?? '',
     new Date().toISOString(),
   );
 
   return { id, message, severity };
 }
 
-export function listNotifications({ unreadOnly = false, limit = 100 } = {}) {
+export function listNotifications({ unreadOnly = false, site, limit = 100 } = {}) {
   const db = getDb();
+  const clauses = [];
+  const params = [];
+  if (unreadOnly) clauses.push(`read_at IS NULL`);
+  if (site && site !== 'all') {
+    clauses.push(`site = ?`);
+    params.push(site);
+  }
   let sql = `SELECT * FROM admin_notifications`;
-  if (unreadOnly) sql += ` WHERE read_at IS NULL`;
+  if (clauses.length) sql += ` WHERE ${clauses.join(' AND ')}`;
   sql += ` ORDER BY datetime(created_at) DESC LIMIT ?`;
+  params.push(limit);
 
-  return db.prepare(sql).all(limit).map((row) => ({
+  return db.prepare(sql).all(...params).map((row) => ({
     id: row.id,
     sessionId: row.session_id,
     companyId: row.company_id,
@@ -44,6 +53,7 @@ export function listNotifications({ unreadOnly = false, limit = 100 } = {}) {
     message: row.message,
     reasons: JSON.parse(row.reasons_json),
     severity: row.severity === 'red' ? 'red' : 'green',
+    site: row.site || '',
     readAt: row.read_at,
     createdAt: row.created_at,
   }));

@@ -1,11 +1,13 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   addEmployeeOne,
   clearStoredAdminKey,
+  deleteEmployeeOne,
   downloadEmployeesTemplate,
   downloadSessionsCsv,
   fetchAdminSessions,
   fetchAdminSettings,
+  fetchAuditLogs,
   fetchEmployeeRoster,
   fetchNotifications,
   getStoredAdminKey,
@@ -15,17 +17,47 @@ import {
   previewEmployeesImport,
   removeAdminLogo,
   saveBrandingColors,
+  saveSitesList,
   type AdminNotification,
   type AdminSessionRow,
   type AdminSettings,
+  type AuditLogRow,
   type EmployeeImportPreview,
+  type EmployeeRow,
+  updateEmployeeOne,
   uploadAdminLogo,
   verifyAdminKey,
 } from './adminApi';
 import { useAppConfig } from './hooks/useAppConfig';
 import './index.css';
 
-type AdminTab = 'notifications' | 'sessions' | 'employees' | 'settings';
+type AdminTab = 'notifications' | 'sessions' | 'employees' | 'settings' | 'audit';
+
+function SiteFilter({
+  id,
+  value,
+  sites,
+  onChange,
+}: {
+  id: string;
+  value: string;
+  sites: string[];
+  onChange: (site: string) => void;
+}) {
+  return (
+    <label className="site-filter" htmlFor={id}>
+      Site / depot
+      <select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
+        <option value="all">All sites</option>
+        {sites.map((site) => (
+          <option key={site} value={site}>
+            {site}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
 
 export default function AdminApp() {
   const { config } = useAppConfig();
@@ -40,6 +72,11 @@ export default function AdminApp() {
   const [flaggedOnly, setFlaggedOnly] = useState(false);
   const [loading, setLoading] = useState(false);
 
+  const [siteFilterNotifications, setSiteFilterNotifications] = useState('all');
+  const [siteFilterSessions, setSiteFilterSessions] = useState('all');
+  const [siteFilterEmployees, setSiteFilterEmployees] = useState('all');
+  const [availableSites, setAvailableSites] = useState<string[]>([]);
+
   const [csvText, setCsvText] = useState('');
   const [csvFileName, setCsvFileName] = useState('');
   const [replaceExisting, setReplaceExisting] = useState(true);
@@ -47,39 +84,74 @@ export default function AdminApp() {
   const [importBusy, setImportBusy] = useState(false);
   const [importMessage, setImportMessage] = useState('');
   const [importError, setImportError] = useState('');
-  const [roster, setRoster] = useState<{ clockNumber: string; name: string }[]>([]);
+  const [roster, setRoster] = useState<EmployeeRow[]>([]);
   const [newClock, setNewClock] = useState('');
   const [newName, setNewName] = useState('');
+  const [newSite, setNewSite] = useState('');
   const [addBusy, setAddBusy] = useState(false);
   const [addMessage, setAddMessage] = useState('');
   const [addError, setAddError] = useState('');
+  const [editingClock, setEditingClock] = useState<string | null>(null);
+  const [editClock, setEditClock] = useState('');
+  const [editName, setEditName] = useState('');
+  const [editSite, setEditSite] = useState('');
+  const [editBusy, setEditBusy] = useState(false);
+  const [rosterMessage, setRosterMessage] = useState('');
+  const [rosterError, setRosterError] = useState('');
 
   const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [primaryColor, setPrimaryColor] = useState('#0c2340');
   const [accentColor, setAccentColor] = useState('#3b82f6');
   const [targetColor, setTargetColor] = useState('#ef4444');
+  const [managedSites, setManagedSites] = useState<string[]>([]);
+  const [newManagedSite, setNewManagedSite] = useState('');
   const [settingsBusy, setSettingsBusy] = useState(false);
   const [settingsMessage, setSettingsMessage] = useState('');
   const [settingsError, setSettingsError] = useState('');
 
+  const [auditLogs, setAuditLogs] = useState<AuditLogRow[]>([]);
+  const [auditError, setAuditError] = useState('');
+
+  const siteOptions = useMemo(() => {
+    const fromConfig = config.sites ?? [];
+    return [...new Set([...availableSites, ...fromConfig, ...managedSites])].sort((a, b) =>
+      a.localeCompare(b),
+    );
+  }, [availableSites, config.sites, managedSites]);
+
   const refreshNotifications = useCallback(async () => {
     if (!getStoredAdminKey()) return;
-    const data = await fetchNotifications(false);
+    const data = await fetchNotifications(false, siteFilterNotifications);
     setNotifications(data.notifications);
     setUnreadCount(data.unreadCount);
     setUnreadRedCount(data.unreadRedCount ?? 0);
-  }, []);
+    if (data.sites?.length) {
+      setAvailableSites((prev) => [...new Set([...prev, ...data.sites])].sort((a, b) => a.localeCompare(b)));
+    }
+  }, [siteFilterNotifications]);
 
   const refreshSessions = useCallback(async () => {
     if (!getStoredAdminKey()) return;
-    const rows = await fetchAdminSessions(flaggedOnly);
-    setSessions(rows);
-  }, [flaggedOnly]);
+    const data = await fetchAdminSessions(flaggedOnly, siteFilterSessions);
+    setSessions(data.sessions);
+    if (data.sites?.length) {
+      setAvailableSites((prev) => [...new Set([...prev, ...data.sites])].sort((a, b) => a.localeCompare(b)));
+    }
+  }, [flaggedOnly, siteFilterSessions]);
 
   const refreshRoster = useCallback(async () => {
     if (!getStoredAdminKey()) return;
-    const data = await fetchEmployeeRoster();
+    const data = await fetchEmployeeRoster(siteFilterEmployees);
     setRoster(data.employees);
+    if (data.sites?.length) {
+      setAvailableSites((prev) => [...new Set([...prev, ...data.sites])].sort((a, b) => a.localeCompare(b)));
+    }
+  }, [siteFilterEmployees]);
+
+  const refreshAudit = useCallback(async () => {
+    if (!getStoredAdminKey()) return;
+    const data = await fetchAuditLogs(200);
+    setAuditLogs(data.logs);
   }, []);
 
   useEffect(() => {
@@ -94,12 +166,20 @@ export default function AdminApp() {
   useEffect(() => {
     if (!authed || tab !== 'sessions') return;
     refreshSessions().catch(() => {});
-  }, [authed, tab, flaggedOnly, refreshSessions]);
+  }, [authed, tab, flaggedOnly, siteFilterSessions, refreshSessions]);
 
   useEffect(() => {
     if (!authed || tab !== 'employees') return;
     refreshRoster().catch(() => {});
-  }, [authed, tab, refreshRoster]);
+  }, [authed, tab, siteFilterEmployees, refreshRoster]);
+
+  useEffect(() => {
+    if (!authed || tab !== 'audit') return;
+    setAuditError('');
+    refreshAudit().catch((err) => {
+      setAuditError(err instanceof Error ? err.message : 'Failed to load audit log');
+    });
+  }, [authed, tab, refreshAudit]);
 
   useEffect(() => {
     if (!authed || tab !== 'settings') return;
@@ -110,6 +190,7 @@ export default function AdminApp() {
         setPrimaryColor(s.branding.primaryColor);
         setAccentColor(s.branding.accentColor);
         setTargetColor(s.branding.targetColor);
+        setManagedSites(s.sites ?? []);
       })
       .catch((err) => {
         setSettingsError(err instanceof Error ? err.message : 'Failed to load settings');
@@ -220,15 +301,74 @@ export default function AdminApp() {
       const result = await addEmployeeOne({
         clockNumber: newClock.trim(),
         name: newName.trim(),
+        site: newSite.trim(),
       });
-      setAddMessage(`Added ${result.employee.name} (#${result.employee.clockNumber}).`);
+      setAddMessage(
+        `Added ${result.employee.name} (#${result.employee.clockNumber})${
+          result.employee.site ? ` · ${result.employee.site}` : ''
+        }.`,
+      );
       setNewClock('');
       setNewName('');
+      setNewSite('');
       await refreshRoster();
     } catch (err) {
       setAddError(err instanceof Error ? err.message : 'Could not add employee');
     } finally {
       setAddBusy(false);
+    }
+  }
+
+  function startEdit(employee: EmployeeRow) {
+    setEditingClock(employee.clockNumber);
+    setEditClock(employee.clockNumber);
+    setEditName(employee.name);
+    setEditSite(employee.site ?? '');
+    setRosterMessage('');
+    setRosterError('');
+  }
+
+  function cancelEdit() {
+    setEditingClock(null);
+    setEditBusy(false);
+  }
+
+  async function handleSaveEdit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!editingClock) return;
+    setEditBusy(true);
+    setRosterMessage('');
+    setRosterError('');
+    try {
+      const result = await updateEmployeeOne(editingClock, {
+        name: editName.trim(),
+        site: editSite.trim(),
+        newClockNumber: editClock.trim(),
+      });
+      setRosterMessage(`Updated ${result.employee.name} (#${result.employee.clockNumber}).`);
+      setEditingClock(null);
+      await refreshRoster();
+    } catch (err) {
+      setRosterError(err instanceof Error ? err.message : 'Could not update employee');
+    } finally {
+      setEditBusy(false);
+    }
+  }
+
+  async function handleDeleteEmployee(employee: EmployeeRow) {
+    const ok = window.confirm(
+      `Delete ${employee.name} (#${employee.clockNumber}) from the roster? Past sessions stay in history.`,
+    );
+    if (!ok) return;
+    setRosterMessage('');
+    setRosterError('');
+    try {
+      await deleteEmployeeOne(employee.clockNumber);
+      if (editingClock === employee.clockNumber) setEditingClock(null);
+      setRosterMessage(`Deleted ${employee.name} (#${employee.clockNumber}).`);
+      await refreshRoster();
+    } catch (err) {
+      setRosterError(err instanceof Error ? err.message : 'Could not delete employee');
     }
   }
 
@@ -239,11 +379,8 @@ export default function AdminApp() {
     setSettingsError('');
     try {
       const result = await saveBrandingColors({ primaryColor, accentColor, targetColor });
-      setSettings((prev) =>
-        prev ? { ...prev, branding: result.branding } : prev,
-      );
+      setSettings((prev) => (prev ? { ...prev, branding: result.branding } : prev));
       setSettingsMessage('Colours saved. Refresh the operator screen to see updates.');
-      // Apply immediately on this admin page too
       document.documentElement.style.setProperty('--brand-primary', result.branding.primaryColor);
       document.documentElement.style.setProperty('--accent', result.branding.accentColor);
       document.documentElement.style.setProperty('--target', result.branding.targetColor);
@@ -261,9 +398,7 @@ export default function AdminApp() {
     setSettingsError('');
     try {
       const result = await uploadAdminLogo(file);
-      setSettings((prev) =>
-        prev ? { ...prev, branding: result.branding } : prev,
-      );
+      setSettings((prev) => (prev ? { ...prev, branding: result.branding } : prev));
       setSettingsMessage('Logo uploaded. Refresh the operator screen to see it.');
     } catch (err) {
       setSettingsError(err instanceof Error ? err.message : 'Logo upload failed');
@@ -278,12 +413,46 @@ export default function AdminApp() {
     setSettingsError('');
     try {
       const result = await removeAdminLogo();
-      setSettings((prev) =>
-        prev ? { ...prev, branding: result.branding } : prev,
-      );
+      setSettings((prev) => (prev ? { ...prev, branding: result.branding } : prev));
       setSettingsMessage('Logo removed.');
     } catch (err) {
       setSettingsError(err instanceof Error ? err.message : 'Could not remove logo');
+    } finally {
+      setSettingsBusy(false);
+    }
+  }
+
+  async function handleAddManagedSite(e: React.FormEvent) {
+    e.preventDefault();
+    const next = newManagedSite.trim();
+    if (!next) return;
+    const sites = [...new Set([...managedSites, next])].sort((a, b) => a.localeCompare(b));
+    setSettingsBusy(true);
+    setSettingsMessage('');
+    setSettingsError('');
+    try {
+      const result = await saveSitesList(sites);
+      setManagedSites(result.sites);
+      setNewManagedSite('');
+      setSettingsMessage('Sites / depots updated.');
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'Could not save sites');
+    } finally {
+      setSettingsBusy(false);
+    }
+  }
+
+  async function handleRemoveManagedSite(site: string) {
+    const sites = managedSites.filter((s) => s !== site);
+    setSettingsBusy(true);
+    setSettingsMessage('');
+    setSettingsError('');
+    try {
+      const result = await saveSitesList(sites);
+      setManagedSites(result.sites);
+      setSettingsMessage(`Removed site “${site}”.`);
+    } catch (err) {
+      setSettingsError(err instanceof Error ? err.message : 'Could not remove site');
     } finally {
       setSettingsBusy(false);
     }
@@ -338,7 +507,12 @@ export default function AdminApp() {
               className={tab === 'notifications' ? 'tab active' : 'tab'}
               onClick={() => setTab('notifications')}
             >
-              Notifications {unreadRedCount > 0 ? `(${unreadRedCount} red)` : unreadCount > 0 ? `(${unreadCount})` : ''}
+              Notifications{' '}
+              {unreadRedCount > 0
+                ? `(${unreadRedCount} red)`
+                : unreadCount > 0
+                  ? `(${unreadCount})`
+                  : ''}
             </button>
             <button
               type="button"
@@ -361,17 +535,32 @@ export default function AdminApp() {
             >
               Settings
             </button>
+            <button
+              type="button"
+              className={tab === 'audit' ? 'tab active' : 'tab'}
+              onClick={() => setTab('audit')}
+            >
+              Audit
+            </button>
           </div>
 
           {tab === 'notifications' ? (
             <main className="main card">
               <div className="admin-toolbar">
                 <h2>Session notifications</h2>
-                {unreadCount > 0 ? (
-                  <button type="button" onClick={handleMarkAllRead}>
-                    Mark all read
-                  </button>
-                ) : null}
+                <div className="admin-toolbar-actions">
+                  <SiteFilter
+                    id="notif-site"
+                    value={siteFilterNotifications}
+                    sites={siteOptions}
+                    onChange={setSiteFilterNotifications}
+                  />
+                  {unreadCount > 0 ? (
+                    <button type="button" onClick={handleMarkAllRead}>
+                      Mark all read
+                    </button>
+                  ) : null}
+                </div>
               </div>
               <p className="muted tiny">
                 Every completed game appears here. <span className="legend-green">Green</span> = under
@@ -393,6 +582,7 @@ export default function AdminApp() {
                         </span>
                         <strong>{n.employeeName}</strong>
                         <span className="muted tiny">#{n.clockNumber}</span>
+                        {n.site ? <span className="muted tiny">{n.site}</span> : null}
                         <span className="muted tiny">{new Date(n.createdAt).toLocaleString()}</span>
                       </div>
                       <p>{n.message}</p>
@@ -418,6 +608,12 @@ export default function AdminApp() {
               <div className="admin-toolbar">
                 <h2>Session history</h2>
                 <div className="admin-toolbar-actions">
+                  <SiteFilter
+                    id="sessions-site"
+                    value={siteFilterSessions}
+                    sites={siteOptions}
+                    onChange={setSiteFilterSessions}
+                  />
                   <label className="checkbox-inline">
                     <input
                       type="checkbox"
@@ -426,7 +622,10 @@ export default function AdminApp() {
                     />
                     Flagged only (red)
                   </label>
-                  <button type="button" onClick={() => downloadSessionsCsv(flaggedOnly)}>
+                  <button
+                    type="button"
+                    onClick={() => downloadSessionsCsv(flaggedOnly, siteFilterSessions)}
+                  >
                     Export CSV
                   </button>
                 </div>
@@ -438,6 +637,7 @@ export default function AdminApp() {
                       <th>When</th>
                       <th>Employee</th>
                       <th>Clock</th>
+                      <th>Site</th>
                       <th>Median</th>
                       <th>Slow hits</th>
                       <th>Hits</th>
@@ -449,20 +649,23 @@ export default function AdminApp() {
                     {sessions.map((s) => {
                       const severity = s.severity ?? (s.shouldAlert ? 'red' : 'green');
                       return (
-                      <tr key={s.id} className={severity === 'red' ? 'row-alert' : 'row-ok'}>
-                        <td>{new Date(s.createdAt).toLocaleString()}</td>
-                        <td>{s.employeeName}</td>
-                        <td>{s.clockNumber}</td>
-                        <td>{s.sessionMedianMs != null ? `${Math.round(s.sessionMedianMs)} ms` : '—'}</td>
-                        <td>{s.slowHits ?? '—'}</td>
-                        <td>{s.clicks.length}</td>
-                        <td>{s.misses}</td>
-                        <td>
-                          <span className={`severity-badge ${severity}`}>
-                            {severity === 'red' ? 'Red' : 'Green'}
-                          </span>
-                        </td>
-                      </tr>
+                        <tr key={s.id} className={severity === 'red' ? 'row-alert' : 'row-ok'}>
+                          <td>{new Date(s.createdAt).toLocaleString()}</td>
+                          <td>{s.employeeName}</td>
+                          <td>{s.clockNumber}</td>
+                          <td>{s.site || '—'}</td>
+                          <td>
+                            {s.sessionMedianMs != null ? `${Math.round(s.sessionMedianMs)} ms` : '—'}
+                          </td>
+                          <td>{s.slowHits ?? '—'}</td>
+                          <td>{s.clicks.length}</td>
+                          <td>{s.misses}</td>
+                          <td>
+                            <span className={`severity-badge ${severity}`}>
+                              {severity === 'red' ? 'Red' : 'Green'}
+                            </span>
+                          </td>
+                        </tr>
                       );
                     })}
                   </tbody>
@@ -475,9 +678,17 @@ export default function AdminApp() {
             <main className="main card">
               <div className="admin-toolbar">
                 <h2>Employees</h2>
-                <button type="button" className="link-btn" onClick={() => downloadEmployeesTemplate()}>
-                  Download CSV template
-                </button>
+                <div className="admin-toolbar-actions">
+                  <SiteFilter
+                    id="employees-site"
+                    value={siteFilterEmployees}
+                    sites={siteOptions}
+                    onChange={setSiteFilterEmployees}
+                  />
+                  <button type="button" className="link-btn" onClick={() => downloadEmployeesTemplate()}>
+                    Download CSV template
+                  </button>
+                </div>
               </div>
 
               <div className="settings-block">
@@ -501,6 +712,21 @@ export default function AdminApp() {
                       required
                     />
                   </label>
+                  <label>
+                    Site / depot
+                    <input
+                      list="site-suggestions"
+                      value={newSite}
+                      onChange={(e) => setNewSite(e.target.value)}
+                      autoComplete="off"
+                      placeholder="Optional"
+                    />
+                  </label>
+                  <datalist id="site-suggestions">
+                    {siteOptions.map((site) => (
+                      <option key={site} value={site} />
+                    ))}
+                  </datalist>
                   <button type="submit" disabled={addBusy || !newClock.trim() || !newName.trim()}>
                     {addBusy ? 'Adding…' : 'Add employee'}
                   </button>
@@ -511,6 +737,8 @@ export default function AdminApp() {
 
               <div className="settings-block">
                 <h3 className="section-title">Current roster ({roster.length})</h3>
+                {rosterMessage ? <p className="success">{rosterMessage}</p> : null}
+                {rosterError ? <p className="error">{rosterError}</p> : null}
                 {roster.length === 0 ? (
                   <p className="muted">No employees yet. Add one above or import a CSV below.</p>
                 ) : (
@@ -520,15 +748,77 @@ export default function AdminApp() {
                         <tr>
                           <th>Clock</th>
                           <th>Name</th>
+                          <th>Site</th>
+                          <th>Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {roster.map((e) => (
-                          <tr key={e.clockNumber}>
-                            <td>{e.clockNumber}</td>
-                            <td>{e.name}</td>
-                          </tr>
-                        ))}
+                        {roster.map((employee) =>
+                          editingClock === employee.clockNumber ? (
+                            <tr key={employee.clockNumber} className="row-editing">
+                              <td colSpan={4}>
+                                <form className="edit-employee-form" onSubmit={handleSaveEdit}>
+                                  <label>
+                                    Clock
+                                    <input
+                                      value={editClock}
+                                      onChange={(e) => setEditClock(e.target.value)}
+                                      required
+                                    />
+                                  </label>
+                                  <label>
+                                    Name
+                                    <input
+                                      value={editName}
+                                      onChange={(e) => setEditName(e.target.value)}
+                                      required
+                                    />
+                                  </label>
+                                  <label>
+                                    Site
+                                    <input
+                                      list="site-suggestions"
+                                      value={editSite}
+                                      onChange={(e) => setEditSite(e.target.value)}
+                                    />
+                                  </label>
+                                  <div className="row-actions">
+                                    <button type="submit" disabled={editBusy}>
+                                      {editBusy ? 'Saving…' : 'Save'}
+                                    </button>
+                                    <button type="button" className="link-btn" onClick={cancelEdit}>
+                                      Cancel
+                                    </button>
+                                  </div>
+                                </form>
+                              </td>
+                            </tr>
+                          ) : (
+                            <tr key={employee.clockNumber}>
+                              <td>{employee.clockNumber}</td>
+                              <td>{employee.name}</td>
+                              <td>{employee.site || '—'}</td>
+                              <td>
+                                <div className="row-actions">
+                                  <button
+                                    type="button"
+                                    className="small-btn"
+                                    onClick={() => startEdit(employee)}
+                                  >
+                                    Edit
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="small-btn danger"
+                                    onClick={() => handleDeleteEmployee(employee)}
+                                  >
+                                    Delete
+                                  </button>
+                                </div>
+                              </td>
+                            </tr>
+                          ),
+                        )}
                       </tbody>
                     </table>
                   </div>
@@ -538,8 +828,9 @@ export default function AdminApp() {
               <div className="settings-block">
                 <h3 className="section-title">Bulk CSV import</h3>
                 <p className="muted">
-                  Upload a CSV with columns <code>clockNumber</code> and <code>name</code>. Preview
-                  first, then apply to replace or append the roster.
+                  Upload a CSV with columns <code>clockNumber</code>, <code>name</code>, and optional{' '}
+                  <code>site</code> (or <code>depot</code>). Preview first, then apply to replace or
+                  append the roster.
                 </p>
 
                 <div className="import-panel">
@@ -602,6 +893,7 @@ export default function AdminApp() {
                               <tr>
                                 <th>Clock</th>
                                 <th>Name</th>
+                                <th>Site</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -609,6 +901,7 @@ export default function AdminApp() {
                                 <tr key={d.clockNumber}>
                                   <td>{d.clockNumber}</td>
                                   <td>{d.name}</td>
+                                  <td>{d.site || '—'}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -648,6 +941,47 @@ export default function AdminApp() {
               </div>
 
               <div className="settings-block">
+                <label className="file-label">Sites / depots</label>
+                <p className="muted tiny">
+                  Used for employee assignment and filtering notifications/sessions. Employees can
+                  also introduce new site names when added or imported.
+                </p>
+                {managedSites.length === 0 ? (
+                  <p className="muted tiny">No sites configured yet.</p>
+                ) : (
+                  <ul className="site-chip-list">
+                    {managedSites.map((site) => (
+                      <li key={site}>
+                        <span>{site}</span>
+                        <button
+                          type="button"
+                          className="link-btn"
+                          disabled={settingsBusy}
+                          onClick={() => handleRemoveManagedSite(site)}
+                        >
+                          Remove
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <form className="add-employee-form" onSubmit={handleAddManagedSite}>
+                  <label>
+                    Add site
+                    <input
+                      value={newManagedSite}
+                      onChange={(e) => setNewManagedSite(e.target.value)}
+                      placeholder="e.g. Main Depot"
+                      autoComplete="off"
+                    />
+                  </label>
+                  <button type="submit" disabled={settingsBusy || !newManagedSite.trim()}>
+                    Add site
+                  </button>
+                </form>
+              </div>
+
+              <div className="settings-block">
                 <label className="file-label">Logo</label>
                 {settings?.branding.logoUrl ? (
                   <div className="logo-preview-row">
@@ -656,7 +990,12 @@ export default function AdminApp() {
                       alt="Company logo"
                       className="settings-logo-preview"
                     />
-                    <button type="button" className="link-btn" disabled={settingsBusy} onClick={handleLogoRemove}>
+                    <button
+                      type="button"
+                      className="link-btn"
+                      disabled={settingsBusy}
+                      onClick={handleLogoRemove}
+                    >
                       Remove logo
                     </button>
                   </div>
@@ -721,6 +1060,54 @@ export default function AdminApp() {
 
               {settingsMessage ? <p className="success">{settingsMessage}</p> : null}
               {settingsError ? <p className="error">{settingsError}</p> : null}
+            </main>
+          ) : null}
+
+          {tab === 'audit' ? (
+            <main className="main card">
+              <div className="admin-toolbar">
+                <h2>Audit log</h2>
+                <button type="button" className="link-btn" onClick={() => refreshAudit()}>
+                  Refresh
+                </button>
+              </div>
+              <p className="muted tiny">
+                Records admin roster changes, branding updates, and completed sessions. Rate limits
+                also protect the API from abuse.
+              </p>
+              {auditError ? <p className="error">{auditError}</p> : null}
+              {auditLogs.length === 0 ? (
+                <p className="muted">No audit entries yet.</p>
+              ) : (
+                <div className="admin-table-wrap">
+                  <table className="admin-table">
+                    <thead>
+                      <tr>
+                        <th>When</th>
+                        <th>Action</th>
+                        <th>Actor</th>
+                        <th>IP</th>
+                        <th>Details</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {auditLogs.map((log) => (
+                        <tr key={log.id}>
+                          <td>{new Date(log.createdAt).toLocaleString()}</td>
+                          <td>
+                            <code>{log.action}</code>
+                          </td>
+                          <td>{log.actor}</td>
+                          <td>{log.ip || '—'}</td>
+                          <td className="audit-details">
+                            <code>{JSON.stringify(log.details)}</code>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </main>
           ) : null}
         </>
