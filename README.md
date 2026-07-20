@@ -32,34 +32,31 @@ Each customer gets their **own copy** (zip package), config, and data — not a 
 
 Configure branding via **`data/company.json`** and/or **`.env`** (see `deploy/customer/customer.env.example`).
 
-## Demo employees
+## Employee roster
 
-Clock numbers **1001–1005** are in `data/employees.json`. Replace or expand that file for your ~500 employees (same JSON shape).
+Roster starts empty. Import employees after install:
 
-## Bulk employee import
+- Admin → **Employees** (CSV upload), or
+- `npm run import:employees -- "/path/to/employees.csv"`
 
-You can now load a full roster from CSV instead of editing JSON by hand.
-
-### CSV format
-
-Required columns:
+CSV format:
 
 ```csv
 clockNumber,name
-1001,Alex Rivera
-1002,Jordan Lee
+E1001,Example Name
+E1002,Example Name
 ```
 
 Download a sample template from:
 
-- `GET /api/admin/employees/template.csv`
+- `GET /api/admin/employees/template.csv` (requires admin key)
 
 ### CLI import
 
 Replace the existing roster:
 
 ```bash
-npm run import:employees -- "/path/to/employees.csv" --companyId=company-1 --companyName="Demo Transport Co."
+npm run import:employees -- "/path/to/employees.csv" --companyId=company-1 --companyName="Your Company Name"
 ```
 
 Append to the existing roster instead of replacing:
@@ -77,7 +74,7 @@ Example preview body:
 
 ```json
 {
-  "csvText": "clockNumber,name\n1001,Alex Rivera\n1002,Jordan Lee"
+  "csvText": "clockNumber,name\nE1001,Example Name\nE1002,Example Name"
 }
 ```
 
@@ -93,7 +90,7 @@ Baselines are computed from stored sessions when a run finishes. On first startu
 ## Admin dashboard
 
 - URL: **`/admin`** (same host as the operator app)
-- Set **`ADMIN_API_KEY`** on the server; supervisors enter it once per browser session
+- Set **`ADMIN_API_KEY`** on the server (default install key is `ADMIN-API-KEY` — change it during setup); supervisors enter it once per browser session
 - Fatigue flags automatically create notifications on the admin page (no SMS required)
 - Export session history as CSV from the admin **Sessions** tab
 - Import employees from CSV on the admin **Employees** tab (preview + replace/append)

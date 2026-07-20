@@ -268,7 +268,10 @@ export default function AdminApp() {
       {!authed ? (
         <main className="main card">
           <h2>Supervisor login</h2>
-          <p className="muted">Enter the admin key configured on the server (`ADMIN_API_KEY`).</p>
+          <p className="muted">
+            Enter the admin key from server setup (`ADMIN_API_KEY`). Default install key is{' '}
+            <code>ADMIN-API-KEY</code> — change it during customer setup.
+          </p>
           <form onSubmit={handleLogin} className="login-form">
             <label htmlFor="admin-key">Admin key</label>
             <input

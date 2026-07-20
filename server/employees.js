@@ -226,5 +226,5 @@ export async function importEmployeesFromCsv({
 }
 
 export function buildEmployeesCsvTemplate() {
-  return ['clockNumber,name', '1001,Alex Rivera', '1002,Jordan Lee'].join('\n');
+  return ['clockNumber,name', 'E1001,Example Name', 'E1002,Example Name'].join('\n');
 }

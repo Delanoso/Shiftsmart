@@ -39,24 +39,34 @@ You can instead (or also) edit **`data/company.json`** for the same fields; **`.
 
 ### B. Employee roster
 
-Prepare CSV:
+Roster starts empty. Prepare CSV:
 
 ```csv
 clockNumber,name
-1001,Jane Smith
-1002,John Doe
+E1001,Jane Smith
+E1002,John Doe
 ```
 
-Import:
+Import via Admin → **Employees** after login, or CLI:
 
 ```bash
 npm install
-npm run import:employees -- "./data/employees-template.csv" --companyId=company-1 --companyName="Your Company Name Here"
+npm run import:employees -- "/path/to/employees.csv" --companyId=company-1 --companyName="Your Company Name Here"
 ```
 
-Or replace `employees-template.csv` with the customer export from payroll/HR.
+### C. Admin key (important)
 
-### C. Logo (optional)
+The package ships with the standard key:
+
+```env
+ADMIN_API_KEY=ADMIN-API-KEY
+```
+
+**Change this during setup** before go-live, then give the new key only to supervisors.
+
+### D. Logo (optional)
+
+Upload from Admin → **Settings** after login, or:
 
 1. Save the customer logo as `public/client-logo.png`
 2. Set `LOGO_PATH=client-logo.png` in `.env`
@@ -128,6 +138,8 @@ Legacy `data/sessions.json` is only used once to migrate into SQLite if the data
 ## Admin dashboard
 
 Supervisors open **`/admin`** on the same server URL and sign in with `ADMIN_API_KEY`.
+
+Default install key: **`ADMIN-API-KEY`** (change during setup).
 
 - Fatigue flags create **admin notifications** automatically (no SMS required)
 - Review session history and **export CSV**

@@ -2,12 +2,12 @@
   "vendorName": "Delano Solutions",
   "productName": "ShiftSmart Fatigue Check",
   "clientCompanyId": "company-1",
-  "clientCompanyName": "Demo Transport Co.",
+  "clientCompanyName": "Your Company Name",
   "supportEmail": "",
   "supportPhone": "",
   "branding": {
     "primaryColor": "#0c2340",
-    "accentColor": "#ef4444",
+    "accentColor": "#3b82f6",
     "targetColor": "#ef4444",
     "logoPath": ""
   },

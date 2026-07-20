@@ -23,6 +23,7 @@ Use this when handing over an Option 2 install.
 ## Alerts
 
 - [ ] Fatigue flag creates a notification on **`/admin`**
+- [ ] `ADMIN_API_KEY` changed from the default `ADMIN-API-KEY` (or confirmed intentionally)
 - [ ] Supervisor can log in with `ADMIN_API_KEY`
 - [ ] Optional: `ALERT_WEBHOOK_URL` for external systems
 

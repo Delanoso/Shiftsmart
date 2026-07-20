@@ -1,4 +1,4 @@
-const ADMIN_API_KEY = process.env.ADMIN_API_KEY ?? '';
+const ADMIN_API_KEY = process.env.ADMIN_API_KEY ?? 'ADMIN-API-KEY';
 
 export function isAdminConfigured() {
   return Boolean(ADMIN_API_KEY);
@@ -19,4 +19,10 @@ export function requireAdmin(req, res, next) {
   }
 
   next();
+}
+
+export function getDefaultAdminKeyHint() {
+  return ADMIN_API_KEY === 'ADMIN-API-KEY'
+    ? 'Using the standard install key. Change ADMIN_API_KEY in .env during setup for production.'
+    : null;
 }

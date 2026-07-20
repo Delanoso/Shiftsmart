@@ -216,7 +216,7 @@ export default function App() {
               id="clock"
               inputMode="numeric"
               autoComplete="off"
-              placeholder="e.g. 1001"
+              placeholder="Clock number"
               value={clockInput}
               onChange={(e) => setClockInput(e.target.value)}
               disabled={loading}
@@ -227,7 +227,9 @@ export default function App() {
             </button>
           </form>
           {!kioskMode ? (
-            <p className="hint muted">Demo employees: 1001–1005 (import more from Admin → Employees).</p>
+            <p className="hint muted">
+              No employees loaded yet? Ask a supervisor to import the roster in Admin → Employees.
+            </p>
           ) : null}
           {!kioskMode ? (
             <p className="hint muted">
