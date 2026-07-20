@@ -1,6 +1,27 @@
 import type { DriverInfo, SessionResult } from '../types';
 
+export interface PublicAppConfig {
+  vendorName: string;
+  productName: string;
+  clientCompanyName: string;
+  supportEmail: string;
+  supportPhone: string;
+  branding: {
+    primaryColor: string;
+    accentColor: string;
+    targetColor: string;
+    logoUrl: string | null;
+  };
+  disclaimer: string;
+}
+
 const API = '/api';
+
+export async function fetchPublicConfig(): Promise<PublicAppConfig> {
+  const res = await fetch(`${API}/config`);
+  if (!res.ok) throw new Error('Failed to load app config');
+  return res.json();
+}
 
 export async function fetchDriver(clockNumber: string): Promise<DriverInfo> {
   const res = await fetch(`${API}/drivers/${encodeURIComponent(clockNumber.trim())}`);

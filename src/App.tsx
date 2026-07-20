@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { fetchCompany, fetchDriver, submitSession } from './api';
+import { useAppConfig } from './hooks/useAppConfig';
 import { useCountdown } from './hooks/useCountdown';
 import { useFatigueGame } from './hooks/useFatigueGame';
 import {
@@ -11,14 +12,14 @@ import {
   type SessionResult,
 } from './types';
 
-function InstructionsModal({ onClose }: { onClose: () => void }) {
+function InstructionsModal({ title, onClose }: { title: string; onClose: () => void }) {
   return (
     <div className="overlay" role="dialog" aria-modal="true" aria-labelledby="instr-title">
       <div className="modal card">
         <button type="button" className="modal-close" onClick={onClose} aria-label="Close instructions">
           ×
         </button>
-        <h2 id="instr-title">Fatigue reaction check</h2>
+        <h2 id="instr-title">{title}</h2>
         <ul className="instr-list">
           <li>Random circles will appear on the play area for about 30 seconds.</li>
           <li>Tap or click each circle as quickly as you can.</li>
@@ -43,6 +44,7 @@ function CountdownOverlay({ value }: { value: number }) {
 }
 
 export default function App() {
+  const { config } = useAppConfig();
   const [phase, setPhase] = useState<ScreenPhase>('login');
   const [clockInput, setClockInput] = useState('');
   const [driver, setDriver] = useState<DriverInfo | null>(null);
@@ -133,11 +135,18 @@ export default function App() {
   return (
     <div className={`app ${phase === 'playing' ? 'playing' : ''}`}>
       <header className="header">
-        <div>
-          <p className="eyebrow">ShiftSmart</p>
-          <h1>Fatigue reaction check</h1>
+        <div className="header-title">
+          {config.branding.logoUrl ? (
+            <img src={config.branding.logoUrl} alt="" className="client-logo" />
+          ) : null}
+          <div>
+            <p className="eyebrow">{config.vendorName}</p>
+            <h1>{config.productName}</h1>
+          </div>
         </div>
-        {companyName ? <span className="company-badge">{companyName}</span> : null}
+        {(companyName || config.clientCompanyName) ? (
+          <span className="company-badge">{companyName || config.clientCompanyName}</span>
+        ) : null}
       </header>
 
       {phase === 'login' && (
@@ -161,6 +170,9 @@ export default function App() {
             </button>
           </form>
           <p className="hint muted">Demo drivers: 1001–1005 (more can be loaded into data/drivers.json).</p>
+          {config.disclaimer ? (
+            <p className="disclaimer muted">{config.disclaimer}</p>
+          ) : null}
         </main>
       )}
 
@@ -175,7 +187,9 @@ export default function App() {
         </div>
       ) : null}
 
-      {phase === 'instructions' ? <InstructionsModal onClose={handleInstructionsClosed} /> : null}
+      {phase === 'instructions' ? (
+        <InstructionsModal title={config.productName} onClose={handleInstructionsClosed} />
+      ) : null}
       {phase === 'countdown' && countdownValue != null ? (
         <CountdownOverlay value={countdownValue} />
       ) : null}

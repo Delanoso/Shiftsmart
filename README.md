@@ -21,6 +21,17 @@ npm start
 
 Serves the built UI and API on port **3001**.
 
+## Sell / install per company (Option 2)
+
+Each customer gets their **own copy** (zip package), config, and data — not a shared SaaS login.
+
+- **Sales & packaging:** [`deploy/customer/README.md`](deploy/customer/README.md)
+- **Install guide:** [`deploy/customer/INSTALL.md`](deploy/customer/INSTALL.md)
+- **Go-live checklist:** [`deploy/customer/CHECKLIST.md`](deploy/customer/CHECKLIST.md)
+- **Build zip:** `npm run package:customer` → `dist-packages/shiftsmart-fatigue-check-customer-*.zip`
+
+Configure branding via **`data/company.json`** and/or **`.env`** (see `deploy/customer/customer.env.example`).
+
 ## Demo drivers
 
 Clock numbers **1001–1005** are in `data/drivers.json`. Replace or expand that file for your ~500 drivers (same JSON shape).

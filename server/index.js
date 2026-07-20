@@ -10,6 +10,7 @@ import {
   parseDriversCsv,
   readDriversFile,
 } from './drivers.js';
+import { loadCompanyConfig, syncDriversCompanyMeta, toPublicConfig } from './config.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR = path.join(__dirname, '..', 'data');
@@ -189,11 +190,17 @@ app.get('/api/health', (_req, res) => {
   res.json({ ok: true });
 });
 
+app.get('/api/config', async (_req, res) => {
+  const config = await loadCompanyConfig();
+  res.json(toPublicConfig(config));
+});
+
 app.get('/api/company', async (_req, res) => {
   const data = await readDriversFile();
+  const config = await loadCompanyConfig();
   res.json({
-    companyId: data.companyId,
-    companyName: data.companyName,
+    companyId: data.companyId || config.clientCompanyId,
+    companyName: data.companyName || config.clientCompanyName,
     driverCount: data.drivers?.length ?? 0,
   });
 });
@@ -338,7 +345,9 @@ app.post('/api/sessions', async (req, res) => {
 
 const PORT = Number(process.env.PORT ?? 3001);
 const distPath = path.join(__dirname, '..', 'dist');
+const publicPath = path.join(__dirname, '..', 'public');
 
+app.use(express.static(publicPath));
 app.use(express.static(distPath));
 app.get('*', (req, res, next) => {
   if (req.path.startsWith('/api')) return next();
@@ -347,6 +356,14 @@ app.get('*', (req, res, next) => {
   });
 });
 
-app.listen(PORT, '0.0.0.0', () => {
-  console.log(`Fatigue checker listening on http://0.0.0.0:${PORT}`);
+async function start() {
+  await syncDriversCompanyMeta();
+  app.listen(PORT, '0.0.0.0', () => {
+    console.log(`Fatigue checker listening on http://0.0.0.0:${PORT}`);
+  });
+}
+
+start().catch((err) => {
+  console.error(err);
+  process.exit(1);
 });

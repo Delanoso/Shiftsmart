@@ -1,0 +1,15 @@
+{
+  "vendorName": "Delano Solutions",
+  "productName": "ShiftSmart Fatigue Check",
+  "clientCompanyId": "company-1",
+  "clientCompanyName": "Demo Transport Co.",
+  "supportEmail": "",
+  "supportPhone": "",
+  "branding": {
+    "primaryColor": "#0c2340",
+    "accentColor": "#ef4444",
+    "targetColor": "#ef4444",
+    "logoPath": ""
+  },
+  "disclaimer": "This check is an operational screening aid only. It does not replace medical assessment or your company's fitness-for-work policies. Supervisors make final decisions."
+}
