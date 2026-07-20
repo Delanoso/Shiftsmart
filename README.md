@@ -86,9 +86,16 @@ Example preview body:
 | File | Purpose |
 |------|---------|
 | `data/drivers.json` | Company + driver roster (clock number, name) |
-| `data/sessions.json` | Saved game sessions and per-click reaction times |
+| `data/shiftsmart.db` | SQLite: sessions, clicks, admin notifications |
 
-Baselines (median/mean reaction time, session counts) are computed from stored sessions when a run finishes.
+Baselines are computed from stored sessions when a run finishes. On first startup, existing `data/sessions.json` is migrated into SQLite if the database is empty.
+
+## Admin dashboard
+
+- URL: **`/admin`** (same host as the operator app)
+- Set **`ADMIN_API_KEY`** on the server; supervisors enter it once per browser session
+- Fatigue flags automatically create notifications on the admin page (no SMS required)
+- Export session history as CSV from the admin **Sessions** tab
 
 ## Alert configuration
 

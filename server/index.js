@@ -1,6 +1,5 @@
 import express from 'express';
 import cors from 'cors';
-import fs from 'fs/promises';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { sendSupervisorAlert } from './alert.js';
@@ -11,188 +10,88 @@ import {
   readDriversFile,
 } from './drivers.js';
 import { loadCompanyConfig, syncDriversCompanyMeta, toPublicConfig } from './config.js';
+import { migrateSessionsFromJsonIfNeeded } from './db.js';
+import { computeBaselines } from './baselines.js';
+import { evaluateSession } from './evaluate.js';
+import {
+  insertSession,
+  listAdminSessions,
+  listSessionsForBaselines,
+  sessionsToCsv,
+} from './sessionStore.js';
+import {
+  countUnreadNotifications,
+  createAdminNotification,
+  listNotifications,
+  markAllNotificationsRead,
+  markNotificationRead,
+} from './notifications.js';
+import { isAdminConfigured, requireAdmin } from './adminAuth.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const DATA_DIR = path.join(__dirname, '..', 'data');
-const DRIVERS_PATH = path.join(DATA_DIR, 'drivers.json');
-const SESSIONS_PATH = path.join(DATA_DIR, 'sessions.json');
-
-/** Placeholder — wire to SMS/voice when number is available */
 const ALERT_PHONE_NUMBER = process.env.ALERT_PHONE_NUMBER ?? '';
+const KIOSK_EXIT_PIN = process.env.KIOSK_EXIT_PIN ?? '';
 
-/** Reaction time (ms) above personal baseline + this margin triggers alert */
-const ALERT_MARGIN_MS = Number(process.env.ALERT_MARGIN_MS ?? 150);
-
-/** Default driver baseline when there is no driver history yet */
-const DRIVER_BASELINE_START_MS = Number(process.env.DRIVER_BASELINE_START_MS ?? 550);
-
-/** Default company baseline when there is no company history yet */
-const COMPANY_BASELINE_START_MS = Number(process.env.COMPANY_BASELINE_START_MS ?? 550);
-
-/** Sessions worse than company median by this factor also trigger alert */
-const ALERT_COMPANY_FACTOR = Number(process.env.ALERT_COMPANY_FACTOR ?? 1.35);
-
-const POOR_REACTION_MS = Number(process.env.POOR_REACTION_MS ?? 800);
-
-async function readJson(filePath, fallback) {
-  try {
-    const raw = await fs.readFile(filePath, 'utf-8');
-    return JSON.parse(raw);
-  } catch {
-    return fallback;
-  }
-}
-
-async function writeJson(filePath, data) {
-  await fs.mkdir(path.dirname(filePath), { recursive: true });
-  await fs.writeFile(filePath, JSON.stringify(data, null, 2), 'utf-8');
-}
-
-function median(values) {
-  if (values.length === 0) return null;
-  const sorted = [...values].sort((a, b) => a - b);
-  const mid = Math.floor(sorted.length / 2);
-  return sorted.length % 2 === 0
-    ? (sorted[mid - 1] + sorted[mid]) / 2
-    : sorted[mid];
-}
-
-function mean(values) {
-  if (values.length === 0) return null;
-  return values.reduce((a, b) => a + b, 0) / values.length;
-}
-
-function computeBaselines(sessions, companyId, clockNumber) {
-  const companySessions = sessions.filter((s) => s.companyId === companyId);
-  const driverSessions = companySessions.filter((s) => s.clockNumber === clockNumber);
-
-  const companyReactionTimes = companySessions.flatMap((s) =>
-    s.clicks.map((c) => c.reactionTimeMs),
-  );
-  const driverReactionTimes = driverSessions.flatMap((s) =>
-    s.clicks.map((c) => c.reactionTimeMs),
-  );
-
-  return {
-    company: {
-      sessionCount: companySessions.length,
-      clickCount: companyReactionTimes.length,
-      medianReactionTimeMs: median(companyReactionTimes) ?? COMPANY_BASELINE_START_MS,
-      meanReactionTimeMs: mean(companyReactionTimes) ?? COMPANY_BASELINE_START_MS,
-    },
-    driver: {
-      sessionCount: driverSessions.length,
-      clickCount: driverReactionTimes.length,
-      // When a driver has no history yet, use a reasonable starting baseline
-      // so we can still evaluate their first run.
-      medianReactionTimeMs: median(driverReactionTimes) ?? DRIVER_BASELINE_START_MS,
-      meanReactionTimeMs: mean(driverReactionTimes) ?? DRIVER_BASELINE_START_MS,
-    },
-  };
-}
-
-function evaluateSession(session, baselinesBefore) {
-  const reactionTimes = session.clicks.map((c) => c.reactionTimeMs);
-  const sessionMedian = median(reactionTimes);
-  const sessionMean = mean(reactionTimes);
-  const misses = session.misses ?? 0;
-
-  const reasons = [];
-  let shouldAlert = false;
-
-  if (reactionTimes.length === 0) {
-    shouldAlert = true;
-    reasons.push('No targets hit during the session.');
+async function deliverAlerts(session, evaluation) {
+  if (!evaluation.shouldAlert) {
+    return { sent: false, adminNotified: false };
   }
 
-  const poorClicks = reactionTimes.filter((rt) => rt >= POOR_REACTION_MS).length;
-  if (poorClicks > 0) {
-    shouldAlert = true;
-    reasons.push(`${poorClicks} reaction(s) at or above ${POOR_REACTION_MS} ms.`);
-  }
+  const adminNotification = createAdminNotification({ session, evaluation });
+  let webhookSent = false;
+  let webhookError;
 
-  if (misses >= 2) {
-    shouldAlert = true;
-    reasons.push(`${misses} missed targets (timeout).`);
-  }
-
-  const driverBaseline = baselinesBefore.driver.medianReactionTimeMs;
-  if (
-    driverBaseline != null &&
-    sessionMedian != null &&
-    sessionMedian > driverBaseline + ALERT_MARGIN_MS
-  ) {
-    shouldAlert = true;
-    reasons.push(
-      `Session median (${Math.round(sessionMedian)} ms) slower than your baseline (${Math.round(driverBaseline)} ms).`,
-    );
-  }
-
-  const companyBaseline = baselinesBefore.company.medianReactionTimeMs;
-  if (
-    companyBaseline != null &&
-    sessionMedian != null &&
-    sessionMedian > companyBaseline * ALERT_COMPANY_FACTOR
-  ) {
-    shouldAlert = true;
-    reasons.push(
-      `Session median (${Math.round(sessionMedian)} ms) well above company baseline (${Math.round(companyBaseline)} ms).`,
-    );
-  }
-
-  return {
-    sessionMedianReactionTimeMs: sessionMedian,
-    sessionMeanReactionTimeMs: sessionMean,
-    shouldAlert,
-    alertReasons: reasons,
-    // For now we treat “alert configured” as webhook or phone configured.
-    alertPhoneConfigured: Boolean(ALERT_PHONE_NUMBER || process.env.ALERT_WEBHOOK_URL),
-  };
-}
-
-async function sendAlert(session, evaluation) {
-  if (!evaluation.shouldAlert) return { sent: false };
-  const payload = {
-    to: ALERT_PHONE_NUMBER || '(not configured)',
-    driver: session.driverName,
-    clockNumber: session.clockNumber,
-    companyId: session.companyId,
-    sessionId: session.id,
-    reasons: evaluation.alertReasons,
-    sessionMedianReactionTimeMs: evaluation.sessionMedianReactionTimeMs,
-    at: new Date().toISOString(),
-  };
-
-  // 1) Webhook (recommended for production; no code changes needed on your side)
-  const webhookConfigured = Boolean(process.env.ALERT_WEBHOOK_URL);
-  if (webhookConfigured) {
+  if (process.env.ALERT_WEBHOOK_URL) {
+    const payload = {
+      driver: session.driverName,
+      clockNumber: session.clockNumber,
+      companyId: session.companyId,
+      sessionId: session.id,
+      reasons: evaluation.alertReasons,
+      sessionMedianReactionTimeMs: evaluation.sessionMedianReactionTimeMs,
+      at: new Date().toISOString(),
+    };
     const result = await sendSupervisorAlert(payload);
-    if (result.sent) return { sent: true, payload, ...result };
-    // If webhook is configured but fails, return failure (UI can show it)
-    return { sent: false, placeholder: !result.sent, payload, ...result };
+    webhookSent = result.sent;
+    webhookError = result.error;
+  } else if (ALERT_PHONE_NUMBER) {
+    console.warn('[Fatigue Alert — phone not wired]', session.clockNumber, session.driverName);
   }
 
-  // 2) Phone integration not wired yet — keep a placeholder for operators
-  if (ALERT_PHONE_NUMBER) {
-    console.warn('[Fatigue Alert — placeholder phone not wired]', JSON.stringify(payload, null, 2));
-    return { sent: false, placeholder: true, payload };
-  }
-
-  console.warn('[Fatigue Alert — placeholder]', JSON.stringify(payload, null, 2));
-  return { sent: false, placeholder: true, payload };
+  return {
+    sent: true,
+    adminNotified: true,
+    notificationId: adminNotification.id,
+    webhookSent,
+    webhookError,
+    placeholder: false,
+  };
 }
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: '1mb' }));
+app.use(express.json({ limit: '2mb' }));
 
 app.get('/api/health', (_req, res) => {
-  res.json({ ok: true });
+  res.json({ ok: true, adminConfigured: isAdminConfigured() });
 });
 
 app.get('/api/config', async (_req, res) => {
   const config = await loadCompanyConfig();
   res.json(toPublicConfig(config));
+});
+
+app.post('/api/kiosk/verify-exit', (req, res) => {
+  const { pin } = req.body ?? {};
+  if (!KIOSK_EXIT_PIN) {
+    res.json({ ok: true, unrestricted: true });
+    return;
+  }
+  if (String(pin) === KIOSK_EXIT_PIN) {
+    res.json({ ok: true });
+    return;
+  }
+  res.status(403).json({ ok: false, error: 'Invalid PIN' });
 });
 
 app.get('/api/company', async (_req, res) => {
@@ -226,12 +125,8 @@ app.get('/api/baselines/:clockNumber', async (req, res) => {
     res.status(404).json({ error: 'Driver not found' });
     return;
   }
-  const sessionsData = await readJson(SESSIONS_PATH, { sessions: [] });
-  const baselines = computeBaselines(
-    sessionsData.sessions,
-    driversData.companyId,
-    req.params.clockNumber,
-  );
+  const sessions = listSessionsForBaselines(driversData.companyId);
+  const baselines = computeBaselines(sessions, driversData.companyId, req.params.clockNumber);
   res.json({
     clockNumber: req.params.clockNumber,
     driverName: driver.name,
@@ -239,49 +134,6 @@ app.get('/api/baselines/:clockNumber', async (req, res) => {
     companyName: driversData.companyName,
     baselines,
   });
-});
-
-app.get('/api/admin/drivers/template.csv', (_req, res) => {
-  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-  res.send(buildDriversCsvTemplate());
-});
-
-app.post('/api/admin/drivers/import/preview', async (req, res) => {
-  const { csvText } = req.body ?? {};
-  if (!csvText || typeof csvText !== 'string') {
-    res.status(400).json({ error: 'csvText is required' });
-    return;
-  }
-
-  const parsed = parseDriversCsv(csvText);
-  res.json({
-    ok: parsed.errors.length === 0,
-    errors: parsed.errors,
-    summary: parsed.summary,
-    preview: parsed.drivers.slice(0, 10),
-  });
-});
-
-app.post('/api/admin/drivers/import', async (req, res) => {
-  const { csvText, companyId, companyName, replaceExisting = true } = req.body ?? {};
-  if (!csvText || typeof csvText !== 'string') {
-    res.status(400).json({ error: 'csvText is required' });
-    return;
-  }
-
-  const result = await importDriversFromCsv({
-    csvText,
-    companyId,
-    companyName,
-    replaceExisting: Boolean(replaceExisting),
-  });
-
-  if (!result.ok) {
-    res.status(400).json(result);
-    return;
-  }
-
-  res.status(201).json(result);
 });
 
 app.post('/api/sessions', async (req, res) => {
@@ -299,9 +151,9 @@ app.post('/api/sessions', async (req, res) => {
     return;
   }
 
-  const sessionsData = await readJson(SESSIONS_PATH, { sessions: [] });
+  const priorSessions = listSessionsForBaselines(driversData.companyId);
   const baselinesBefore = computeBaselines(
-    sessionsData.sessions,
+    priorSessions,
     driversData.companyId,
     String(clockNumber),
   );
@@ -324,13 +176,14 @@ app.post('/api/sessions', async (req, res) => {
   };
 
   const evaluation = evaluateSession(session, baselinesBefore);
-  const alertResult = await sendAlert(session, evaluation);
+  evaluation.alertConfigured = true;
+  evaluation.alertPhoneConfigured = Boolean(process.env.ALERT_WEBHOOK_URL || ALERT_PHONE_NUMBER);
 
-  sessionsData.sessions.push(session);
-  await writeJson(SESSIONS_PATH, sessionsData);
+  insertSession(session, evaluation);
+  const alertResult = await deliverAlerts(session, evaluation);
 
   const baselinesAfter = computeBaselines(
-    sessionsData.sessions,
+    listSessionsForBaselines(driversData.companyId),
     driversData.companyId,
     String(clockNumber),
   );
@@ -341,6 +194,85 @@ app.post('/api/sessions', async (req, res) => {
     alert: alertResult,
     baselines: baselinesAfter,
   });
+});
+
+app.get('/api/admin/drivers/template.csv', requireAdmin, (_req, res) => {
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.send(buildDriversCsvTemplate());
+});
+
+app.post('/api/admin/drivers/import/preview', requireAdmin, async (req, res) => {
+  const { csvText } = req.body ?? {};
+  if (!csvText || typeof csvText !== 'string') {
+    res.status(400).json({ error: 'csvText is required' });
+    return;
+  }
+
+  const parsed = parseDriversCsv(csvText);
+  res.json({
+    ok: parsed.errors.length === 0,
+    errors: parsed.errors,
+    summary: parsed.summary,
+    preview: parsed.drivers.slice(0, 10),
+  });
+});
+
+app.post('/api/admin/drivers/import', requireAdmin, async (req, res) => {
+  const { csvText, companyId, companyName, replaceExisting = true } = req.body ?? {};
+  if (!csvText || typeof csvText !== 'string') {
+    res.status(400).json({ error: 'csvText is required' });
+    return;
+  }
+
+  const result = await importDriversFromCsv({
+    csvText,
+    companyId,
+    companyName,
+    replaceExisting: Boolean(replaceExisting),
+  });
+
+  if (!result.ok) {
+    res.status(400).json(result);
+    return;
+  }
+
+  res.status(201).json(result);
+});
+
+app.get('/api/admin/sessions', requireAdmin, (req, res) => {
+  const flaggedOnly = req.query.flaggedOnly === 'true';
+  const limit = Math.min(Number(req.query.limit ?? 200), 500);
+  res.json({ sessions: listAdminSessions({ flaggedOnly, limit }) });
+});
+
+app.get('/api/admin/sessions/export.csv', requireAdmin, (req, res) => {
+  const flaggedOnly = req.query.flaggedOnly === 'true';
+  const sessions = listAdminSessions({ flaggedOnly, limit: 5000 });
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="shiftsmart-sessions.csv"');
+  res.send(sessionsToCsv(sessions));
+});
+
+app.get('/api/admin/notifications', requireAdmin, (req, res) => {
+  const unreadOnly = req.query.unreadOnly === 'true';
+  res.json({
+    unreadCount: countUnreadNotifications(),
+    notifications: listNotifications({ unreadOnly, limit: 100 }),
+  });
+});
+
+app.patch('/api/admin/notifications/:id/read', requireAdmin, (req, res) => {
+  const ok = markNotificationRead(req.params.id);
+  if (!ok) {
+    res.status(404).json({ error: 'Notification not found or already read' });
+    return;
+  }
+  res.json({ ok: true, unreadCount: countUnreadNotifications() });
+});
+
+app.post('/api/admin/notifications/read-all', requireAdmin, (_req, res) => {
+  const updated = markAllNotificationsRead();
+  res.json({ ok: true, updated, unreadCount: countUnreadNotifications() });
 });
 
 const PORT = Number(process.env.PORT ?? 3001);
@@ -358,8 +290,13 @@ app.get('*', (req, res, next) => {
 
 async function start() {
   await syncDriversCompanyMeta();
+  const migration = migrateSessionsFromJsonIfNeeded();
+  if (migration.migrated > 0) {
+    console.log(`Migrated ${migration.migrated} session(s) from data/sessions.json to SQLite`);
+  }
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`Fatigue checker listening on http://0.0.0.0:${PORT}`);
+    console.log(`Admin dashboard: http://0.0.0.0:${PORT}/admin`);
   });
 }
 

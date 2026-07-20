@@ -23,15 +23,16 @@ Use this when handing over an Option 2 install.
 
 ## Alerts
 
-- [ ] `ALERT_WEBHOOK_URL` set and test flag triggers a POST
-- [ ] Customer confirms who receives / acts on alerts
+- [ ] Fatigue flag creates a notification on **`/admin`**
+- [ ] Supervisor can log in with `ADMIN_API_KEY`
+- [ ] Optional: `ALERT_WEBHOOK_URL` for external systems
 
 ## Production
 
 - [ ] `npm run build` completed on target server
 - [ ] Service starts on reboot (systemd / Windows Task / PM2)
 - [ ] HTTPS enabled if exposed outside the depot LAN
-- [ ] Backup plan for `data/` documented
+- [ ] Backup plan for `data/shiftsmart.db` documented
 
 ## Training (5 minutes)
 

@@ -27,6 +27,21 @@ function envOr(value, envKey) {
   return fromEnv || value;
 }
 
+function envBool(value, envKey, defaultValue = false) {
+  const fromEnv = process.env[envKey]?.trim().toLowerCase();
+  if (fromEnv === 'true' || fromEnv === '1') return true;
+  if (fromEnv === 'false' || fromEnv === '0') return false;
+  if (typeof value === 'boolean') return value;
+  return defaultValue;
+}
+
+function envInt(value, envKey, defaultValue) {
+  const fromEnv = process.env[envKey]?.trim();
+  if (fromEnv && !Number.isNaN(Number(fromEnv))) return Number(fromEnv);
+  if (typeof value === 'number' && !Number.isNaN(value)) return value;
+  return defaultValue;
+}
+
 export async function loadCompanyConfig() {
   let fileConfig = {};
   try {
@@ -58,6 +73,9 @@ export async function loadCompanyConfig() {
       logoPath: envOr(branding.logoPath ?? '', 'LOGO_PATH'),
     },
     disclaimer: envOr(fileConfig.disclaimer ?? DEFAULTS.disclaimer, 'DISCLAIMER'),
+    kioskMode: envBool(fileConfig.kioskMode, 'KIOSK_MODE', false),
+    kioskResultsSeconds: envInt(fileConfig.kioskResultsSeconds, 'KIOSK_RESULTS_SECONDS', 12),
+    kioskRequireExitPin: envBool(fileConfig.kioskRequireExitPin, 'KIOSK_REQUIRE_EXIT_PIN', true),
   };
 
   return merged;
@@ -79,6 +97,9 @@ export function toPublicConfig(config) {
       logoUrl: logoPath ? (logoPath.startsWith('/') ? logoPath : `/${logoPath}`) : null,
     },
     disclaimer: config.disclaimer,
+    kioskMode: config.kioskMode,
+    kioskResultsSeconds: config.kioskResultsSeconds,
+    kioskRequireExitPin: Boolean(process.env.KIOSK_EXIT_PIN) && config.kioskRequireExitPin,
   };
 }
 

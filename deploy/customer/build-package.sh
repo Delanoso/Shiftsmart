@@ -18,6 +18,8 @@ rsync -a \
   --exclude .git \
   --exclude .env \
   --exclude data/sessions.json \
+  --exclude 'data/*.db' \
+  --exclude 'data/*.db-*' \
   "${ROOT}/" "${PKG}/"
 
 # Fresh session store for new customer

@@ -13,6 +13,9 @@ export interface PublicAppConfig {
     logoUrl: string | null;
   };
   disclaimer: string;
+  kioskMode: boolean;
+  kioskResultsSeconds: number;
+  kioskRequireExitPin: boolean;
 }
 
 const API = '/api';
@@ -60,4 +63,15 @@ export async function fetchCompany(): Promise<{
   const res = await fetch(`${API}/company`);
   if (!res.ok) throw new Error('Failed to load company');
   return res.json();
+}
+
+export async function verifyKioskExitPin(pin: string): Promise<boolean> {
+  const res = await fetch(`${API}/kiosk/verify-exit`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ pin }),
+  });
+  if (!res.ok) return false;
+  const data = await res.json();
+  return Boolean(data.ok);
 }

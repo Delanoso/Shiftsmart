@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { fetchCompany, fetchDriver, submitSession } from './api';
+import { fetchCompany, fetchDriver, submitSession, verifyKioskExitPin } from './api';
 import { useAppConfig } from './hooks/useAppConfig';
 import { useCountdown } from './hooks/useCountdown';
 import { useFatigueGame } from './hooks/useFatigueGame';
@@ -54,12 +54,46 @@ export default function App() {
   const [sessionResult, setSessionResult] = useState<SessionResult | null>(null);
   const [saveError, setSaveError] = useState('');
   const [gameStartedAt, setGameStartedAt] = useState<string>('');
+  const [kioskUnlocked, setKioskUnlocked] = useState(false);
+  const [showExitPin, setShowExitPin] = useState(false);
+  const [exitPinInput, setExitPinInput] = useState('');
+  const [exitPinError, setExitPinError] = useState('');
+
+  const kioskMode = config.kioskMode;
+
+  const resetToLogin = useCallback(() => {
+    setDriver(null);
+    setClockInput('');
+    setSessionResult(null);
+    setSaveError('');
+    setPhase('login');
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
+    }
+  }, []);
 
   useEffect(() => {
     fetchCompany()
       .then((c) => setCompanyName(c.companyName))
       .catch(() => setCompanyName(''));
   }, []);
+
+  useEffect(() => {
+    if (!kioskMode || phase !== 'playing') return;
+    const el = document.documentElement;
+    if (el.requestFullscreen) {
+      el.requestFullscreen().catch(() => {});
+    }
+  }, [kioskMode, phase]);
+
+  useEffect(() => {
+    if (!kioskMode || phase !== 'results' || loading || !sessionResult) return;
+    const ms = (config.kioskResultsSeconds ?? 12) * 1000;
+    const id = window.setTimeout(() => {
+      resetToLogin();
+    }, ms);
+    return () => window.clearTimeout(id);
+  }, [kioskMode, phase, loading, sessionResult, config.kioskResultsSeconds, resetToLogin]);
 
   const handleInstructionsClosed = () => setPhase('countdown');
 
@@ -123,17 +157,40 @@ export default function App() {
   }
 
   function handleSignOut() {
-    setDriver(null);
-    setClockInput('');
-    setSessionResult(null);
-    setSaveError('');
-    setPhase('login');
+    resetToLogin();
+  }
+
+  async function tryUnlockKiosk() {
+    if (!kioskMode) {
+      handleSignOut();
+      return;
+    }
+    if (!config.kioskRequireExitPin) {
+      setKioskUnlocked(true);
+      handleSignOut();
+      return;
+    }
+    setShowExitPin(true);
+    setExitPinError('');
+  }
+
+  async function submitExitPin(e: React.FormEvent) {
+    e.preventDefault();
+    const ok = await verifyKioskExitPin(exitPinInput);
+    if (!ok) {
+      setExitPinError('Incorrect PIN');
+      return;
+    }
+    setKioskUnlocked(true);
+    setShowExitPin(false);
+    setExitPinInput('');
+    handleSignOut();
   }
 
   const secondsLeft = Math.ceil(game.timeLeftMs / 1000);
 
   return (
-    <div className={`app ${phase === 'playing' ? 'playing' : ''}`}>
+    <div className={`app ${phase === 'playing' ? 'playing' : ''} ${kioskMode ? 'kiosk' : ''}`}>
       <header className="header">
         <div className="header-title">
           {config.branding.logoUrl ? (
@@ -169,7 +226,14 @@ export default function App() {
               {loading ? 'Looking up…' : 'Continue'}
             </button>
           </form>
-          <p className="hint muted">Demo drivers: 1001–1005 (more can be loaded into data/drivers.json).</p>
+          {!kioskMode ? (
+            <p className="hint muted">Demo drivers: 1001–1005 (more can be loaded into data/drivers.json).</p>
+          ) : null}
+          {!kioskMode ? (
+            <p className="hint muted">
+              <a href="/admin">Supervisor admin</a>
+            </p>
+          ) : null}
           {config.disclaimer ? (
             <p className="disclaimer muted">{config.disclaimer}</p>
           ) : null}
@@ -181,9 +245,11 @@ export default function App() {
           <span>
             {driver.name} · #{driver.clockNumber}
           </span>
-          <button type="button" className="link-btn" onClick={handleSignOut}>
-            Switch driver
-          </button>
+          {!kioskMode || kioskUnlocked ? (
+            <button type="button" className="link-btn" onClick={tryUnlockKiosk}>
+              {kioskMode ? 'Exit kiosk' : 'Switch driver'}
+            </button>
+          ) : null}
         </div>
       ) : null}
 
@@ -275,16 +341,11 @@ export default function App() {
                       <li key={r}>{r}</li>
                     ))}
                   </ul>
-                  {sessionResult.alert.sent ? (
-                    <p className="muted tiny">Supervisor alert triggered.</p>
-                  ) : sessionResult.alert.placeholder ? (
-                    <p className="muted tiny">
-                      Alert not delivered yet — configure <code>ALERT_WEBHOOK_URL</code> (recommended) or
-                      <code>ALERT_PHONE_NUMBER</code> for SMS/call.
-                    </p>
-                  ) : (
-                    <p className="muted tiny">Supervisor alert configured, but delivery failed. Check server logs.</p>
-                  )}
+                  {sessionResult.alert.adminNotified ? (
+                    <p className="muted tiny">Supervisor notified on the admin dashboard.</p>
+                  ) : sessionResult.evaluation.shouldAlert ? (
+                    <p className="muted tiny">Fatigue flagged for this session.</p>
+                  ) : null}
                 </div>
               ) : (
                 <p className="success">Reaction times look within expected range for your baselines.</p>
@@ -302,11 +363,39 @@ export default function App() {
               </details>
             </>
           ) : null}
-          <button type="button" onClick={handlePlayAgain} disabled={loading}>
-            Run again
-          </button>
+          {!kioskMode ? (
+            <button type="button" onClick={handlePlayAgain} disabled={loading}>
+              Run again
+            </button>
+          ) : (
+            <p className="muted tiny">
+              Returning to clock login in {config.kioskResultsSeconds}s…
+            </p>
+          )}
         </main>
       )}
+
+      {showExitPin ? (
+        <div className="overlay" role="dialog" aria-modal="true">
+          <div className="modal card">
+            <h2>Supervisor PIN</h2>
+            <form onSubmit={submitExitPin} className="login-form">
+              <input
+                type="password"
+                autoComplete="off"
+                value={exitPinInput}
+                onChange={(e) => setExitPinInput(e.target.value)}
+                placeholder="Enter kiosk exit PIN"
+              />
+              {exitPinError ? <p className="error">{exitPinError}</p> : null}
+              <button type="submit">Unlock</button>
+              <button type="button" className="link-btn" onClick={() => setShowExitPin(false)}>
+                Cancel
+              </button>
+            </form>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

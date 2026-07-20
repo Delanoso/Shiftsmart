@@ -118,10 +118,19 @@ Test with [webhook.site](https://webhook.site) during setup, then point to the c
 
 Back up regularly:
 
+- `data/shiftsmart.db` (SQLite — sessions, clicks, admin notifications)
 - `data/drivers.json`
-- `data/sessions.json`
 - `data/company.json`
 - `.env` (secure storage)
+
+Legacy `data/sessions.json` is only used once to migrate into SQLite if the database is empty.
+
+## Admin dashboard
+
+Supervisors open **`/admin`** on the same server URL and sign in with `ADMIN_API_KEY`.
+
+- Fatigue flags create **admin notifications** automatically (no SMS required)
+- Review session history and **export CSV**
 
 ## 7. Updates (new version from Delano Solutions)
 

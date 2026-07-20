@@ -14,6 +14,9 @@ const DEFAULT_CONFIG: PublicAppConfig = {
     logoUrl: null,
   },
   disclaimer: '',
+  kioskMode: false,
+  kioskResultsSeconds: 12,
+  kioskRequireExitPin: false,
 };
 
 function applyBranding(config: PublicAppConfig) {

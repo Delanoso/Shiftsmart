@@ -47,6 +47,9 @@ export interface SessionResult {
   };
   alert: {
     sent: boolean;
+    adminNotified?: boolean;
+    notificationId?: string;
+    webhookSent?: boolean;
     placeholder?: boolean;
   };
   baselines: {
