@@ -225,6 +225,47 @@ export async function importEmployeesFromCsv({
   };
 }
 
+export async function addEmployee({ clockNumber, name }) {
+  const current = await readEmployeesFile();
+  const normalizedClock = String(clockNumber ?? '').replace(/\s+/g, '');
+  const normalizedName = String(name ?? '').trim();
+
+  if (!normalizedClock || !normalizedName) {
+    return { ok: false, error: 'Clock number and name are required' };
+  }
+  if (!/^[a-zA-Z0-9]+$/.test(normalizedClock)) {
+    return { ok: false, error: 'Clock number must use letters and numbers only' };
+  }
+  if (current.employees.some((e) => e.clockNumber === normalizedClock)) {
+    return { ok: false, error: `Clock number ${normalizedClock} already exists` };
+  }
+
+  const employee = { clockNumber: normalizedClock, name: normalizedName };
+  const nextData = {
+    ...current,
+    employees: [...current.employees, employee],
+  };
+  await writeEmployeesFile(nextData);
+
+  return {
+    ok: true,
+    employee,
+    employeeCount: nextData.employees.length,
+  };
+}
+
+export async function listEmployees() {
+  const data = await readEmployeesFile();
+  return {
+    companyId: data.companyId,
+    companyName: data.companyName,
+    employees: [...data.employees].sort((a, b) =>
+      a.clockNumber.localeCompare(b.clockNumber, undefined, { numeric: true }),
+    ),
+    employeeCount: data.employees.length,
+  };
+}
+
 export function buildEmployeesCsvTemplate() {
   return ['clockNumber,name', 'E1001,Example Name', 'E1002,Example Name'].join('\n');
 }

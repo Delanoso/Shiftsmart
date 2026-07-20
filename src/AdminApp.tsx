@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
+  addEmployeeOne,
   clearStoredAdminKey,
   downloadEmployeesTemplate,
   downloadSessionsCsv,
   fetchAdminSessions,
   fetchAdminSettings,
+  fetchEmployeeRoster,
   fetchNotifications,
   getStoredAdminKey,
   importEmployeesCsv,
@@ -44,6 +46,12 @@ export default function AdminApp() {
   const [importBusy, setImportBusy] = useState(false);
   const [importMessage, setImportMessage] = useState('');
   const [importError, setImportError] = useState('');
+  const [roster, setRoster] = useState<{ clockNumber: string; name: string }[]>([]);
+  const [newClock, setNewClock] = useState('');
+  const [newName, setNewName] = useState('');
+  const [addBusy, setAddBusy] = useState(false);
+  const [addMessage, setAddMessage] = useState('');
+  const [addError, setAddError] = useState('');
 
   const [settings, setSettings] = useState<AdminSettings | null>(null);
   const [primaryColor, setPrimaryColor] = useState('#0c2340');
@@ -66,6 +74,12 @@ export default function AdminApp() {
     setSessions(rows);
   }, [flaggedOnly]);
 
+  const refreshRoster = useCallback(async () => {
+    if (!getStoredAdminKey()) return;
+    const data = await fetchEmployeeRoster();
+    setRoster(data.employees);
+  }, []);
+
   useEffect(() => {
     if (!authed) return;
     refreshNotifications().catch(() => setAuthed(false));
@@ -79,6 +93,11 @@ export default function AdminApp() {
     if (!authed || tab !== 'sessions') return;
     refreshSessions().catch(() => {});
   }, [authed, tab, flaggedOnly, refreshSessions]);
+
+  useEffect(() => {
+    if (!authed || tab !== 'employees') return;
+    refreshRoster().catch(() => {});
+  }, [authed, tab, refreshRoster]);
 
   useEffect(() => {
     if (!authed || tab !== 'settings') return;
@@ -182,10 +201,32 @@ export default function AdminApp() {
       setPreview(null);
       setCsvText('');
       setCsvFileName('');
+      await refreshRoster();
     } catch (err) {
       setImportError(err instanceof Error ? err.message : 'Import failed');
     } finally {
       setImportBusy(false);
+    }
+  }
+
+  async function handleAddEmployee(e: React.FormEvent) {
+    e.preventDefault();
+    setAddBusy(true);
+    setAddMessage('');
+    setAddError('');
+    try {
+      const result = await addEmployeeOne({
+        clockNumber: newClock.trim(),
+        name: newName.trim(),
+      });
+      setAddMessage(`Added ${result.employee.name} (#${result.employee.clockNumber}).`);
+      setNewClock('');
+      setNewName('');
+      await refreshRoster();
+    } catch (err) {
+      setAddError(err instanceof Error ? err.message : 'Could not add employee');
+    } finally {
+      setAddBusy(false);
     }
   }
 
@@ -414,94 +455,153 @@ export default function AdminApp() {
           {tab === 'employees' ? (
             <main className="main card">
               <div className="admin-toolbar">
-                <h2>Import employees</h2>
+                <h2>Employees</h2>
                 <button type="button" className="link-btn" onClick={() => downloadEmployeesTemplate()}>
                   Download CSV template
                 </button>
               </div>
-              <p className="muted">
-                Upload a CSV with columns <code>clockNumber</code> and <code>name</code>. Preview first,
-                then apply to replace or append the roster.
-              </p>
 
-              <div className="import-panel">
-                <label className="file-label" htmlFor="employees-csv">
-                  Choose CSV file
-                </label>
-                <input
-                  id="employees-csv"
-                  type="file"
-                  accept=".csv,text/csv"
-                  onChange={(e) => handleCsvFile(e.target.files?.[0] ?? null)}
-                />
-                {csvFileName ? <p className="muted tiny">Selected: {csvFileName}</p> : null}
-
-                <label className="checkbox-inline import-option">
-                  <input
-                    type="checkbox"
-                    checked={replaceExisting}
-                    onChange={(e) => setReplaceExisting(e.target.checked)}
-                  />
-                  Replace existing roster (unchecked = append)
-                </label>
-
-                <div className="admin-toolbar-actions">
-                  <button type="button" disabled={!csvText || importBusy} onClick={handlePreview}>
-                    {importBusy ? 'Working…' : 'Preview'}
+              <div className="settings-block">
+                <h3 className="section-title">Add one employee</h3>
+                <form className="add-employee-form" onSubmit={handleAddEmployee}>
+                  <label>
+                    Clock number
+                    <input
+                      value={newClock}
+                      onChange={(e) => setNewClock(e.target.value)}
+                      autoComplete="off"
+                      required
+                    />
+                  </label>
+                  <label>
+                    Name
+                    <input
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      autoComplete="off"
+                      required
+                    />
+                  </label>
+                  <button type="submit" disabled={addBusy || !newClock.trim() || !newName.trim()}>
+                    {addBusy ? 'Adding…' : 'Add employee'}
                   </button>
-                  <button
-                    type="button"
-                    disabled={!csvText || importBusy || (preview != null && !preview.ok)}
-                    onClick={handleImport}
-                  >
-                    Apply import
-                  </button>
-                </div>
+                </form>
+                {addMessage ? <p className="success">{addMessage}</p> : null}
+                {addError ? <p className="error">{addError}</p> : null}
+              </div>
 
-                {importMessage ? <p className="success">{importMessage}</p> : null}
-                {importError ? <p className="error">{importError}</p> : null}
-
-                {preview ? (
-                  <div className="import-preview">
-                    <p className="muted tiny">
-                      Rows: {preview.summary.totalRows} · Valid: {preview.summary.validEmployees}
-                      {preview.ok ? ' · Ready to import' : ' · Fix errors before importing'}
-                    </p>
-                    {preview.errors.length > 0 ? (
-                      <ul className="error-list">
-                        {preview.errors.slice(0, 12).map((err) => (
-                          <li key={err}>{err}</li>
+              <div className="settings-block">
+                <h3 className="section-title">Current roster ({roster.length})</h3>
+                {roster.length === 0 ? (
+                  <p className="muted">No employees yet. Add one above or import a CSV below.</p>
+                ) : (
+                  <div className="admin-table-wrap">
+                    <table className="admin-table">
+                      <thead>
+                        <tr>
+                          <th>Clock</th>
+                          <th>Name</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {roster.map((e) => (
+                          <tr key={e.clockNumber}>
+                            <td>{e.clockNumber}</td>
+                            <td>{e.name}</td>
+                          </tr>
                         ))}
-                        {preview.errors.length > 12 ? (
-                          <li>…and {preview.errors.length - 12} more</li>
-                        ) : null}
-                      </ul>
-                    ) : null}
-                    {preview.preview.length > 0 ? (
-                      <div className="admin-table-wrap">
-                        <table className="admin-table">
-                          <thead>
-                            <tr>
-                              <th>Clock</th>
-                              <th>Name</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            {preview.preview.map((d) => (
-                              <tr key={d.clockNumber}>
-                                <td>{d.clockNumber}</td>
-                                <td>{d.name}</td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                        {preview.summary.validEmployees > preview.preview.length ? (
-                          <p className="muted tiny">Showing first {preview.preview.length} rows.</p>
-                        ) : null}
-                      </div>
-                    ) : null}
+                      </tbody>
+                    </table>
                   </div>
-                ) : null}
+                )}
+              </div>
+
+              <div className="settings-block">
+                <h3 className="section-title">Bulk CSV import</h3>
+                <p className="muted">
+                  Upload a CSV with columns <code>clockNumber</code> and <code>name</code>. Preview
+                  first, then apply to replace or append the roster.
+                </p>
+
+                <div className="import-panel">
+                  <label className="file-label" htmlFor="employees-csv">
+                    Choose CSV file
+                  </label>
+                  <input
+                    id="employees-csv"
+                    type="file"
+                    accept=".csv,text/csv"
+                    onChange={(e) => handleCsvFile(e.target.files?.[0] ?? null)}
+                  />
+                  {csvFileName ? <p className="muted tiny">Selected: {csvFileName}</p> : null}
+
+                  <label className="checkbox-inline import-option">
+                    <input
+                      type="checkbox"
+                      checked={replaceExisting}
+                      onChange={(e) => setReplaceExisting(e.target.checked)}
+                    />
+                    Replace existing roster (unchecked = append)
+                  </label>
+
+                  <div className="admin-toolbar-actions">
+                    <button type="button" disabled={!csvText || importBusy} onClick={handlePreview}>
+                      {importBusy ? 'Working…' : 'Preview'}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={!csvText || importBusy || (preview != null && !preview.ok)}
+                      onClick={handleImport}
+                    >
+                      Apply import
+                    </button>
+                  </div>
+
+                  {importMessage ? <p className="success">{importMessage}</p> : null}
+                  {importError ? <p className="error">{importError}</p> : null}
+
+                  {preview ? (
+                    <div className="import-preview">
+                      <p className="muted tiny">
+                        Rows: {preview.summary.totalRows} · Valid: {preview.summary.validEmployees}
+                        {preview.ok ? ' · Ready to import' : ' · Fix errors before importing'}
+                      </p>
+                      {preview.errors.length > 0 ? (
+                        <ul className="error-list">
+                          {preview.errors.slice(0, 12).map((err) => (
+                            <li key={err}>{err}</li>
+                          ))}
+                          {preview.errors.length > 12 ? (
+                            <li>…and {preview.errors.length - 12} more</li>
+                          ) : null}
+                        </ul>
+                      ) : null}
+                      {preview.preview.length > 0 ? (
+                        <div className="admin-table-wrap">
+                          <table className="admin-table">
+                            <thead>
+                              <tr>
+                                <th>Clock</th>
+                                <th>Name</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {preview.preview.map((d) => (
+                                <tr key={d.clockNumber}>
+                                  <td>{d.clockNumber}</td>
+                                  <td>{d.name}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                          {preview.summary.validEmployees > preview.preview.length ? (
+                            <p className="muted tiny">Showing first {preview.preview.length} rows.</p>
+                          ) : null}
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
               </div>
             </main>
           ) : null}

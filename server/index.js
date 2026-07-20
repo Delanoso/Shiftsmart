@@ -8,6 +8,8 @@ import {
   importEmployeesFromCsv,
   parseEmployeesCsv,
   readEmployeesFile,
+  addEmployee,
+  listEmployees,
 } from './employees.js';
 import { loadCompanyConfig, syncEmployeesCompanyMeta, toPublicConfig, updateBrandingSettings, saveUploadedLogo, clearUploadedLogo } from './config.js';
 import { migrateSessionsFromJsonIfNeeded } from './db.js';
@@ -199,6 +201,20 @@ app.post('/api/sessions', async (req, res) => {
 app.get('/api/admin/employees/template.csv', requireAdmin, (_req, res) => {
   res.setHeader('Content-Type', 'text/csv; charset=utf-8');
   res.send(buildEmployeesCsvTemplate());
+});
+
+app.get('/api/admin/employees', requireAdmin, async (_req, res) => {
+  res.json(await listEmployees());
+});
+
+app.post('/api/admin/employees', requireAdmin, async (req, res) => {
+  const { clockNumber, name } = req.body ?? {};
+  const result = await addEmployee({ clockNumber, name });
+  if (!result.ok) {
+    res.status(400).json(result);
+    return;
+  }
+  res.status(201).json(result);
 });
 
 app.post('/api/admin/employees/import/preview', requireAdmin, async (req, res) => {

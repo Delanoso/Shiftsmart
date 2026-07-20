@@ -157,6 +157,41 @@ export async function importEmployeesCsv(payload: {
   return body;
 }
 
+export async function fetchEmployeeRoster() {
+  const res = await adminFetch('/api/admin/employees');
+  return res.json() as Promise<{
+    employees: { clockNumber: string; name: string }[];
+    employeeCount: number;
+  }>;
+}
+
+export async function addEmployeeOne(payload: { clockNumber: string; name: string }) {
+  const key = getStoredAdminKey();
+  const headers = new Headers({ 'Content-Type': 'application/json' });
+  if (key) headers.set('X-Admin-Key', key);
+
+  const res = await fetch('/api/admin/employees', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+  });
+
+  if (res.status === 401) {
+    clearStoredAdminKey();
+    throw new Error('Invalid admin key');
+  }
+
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(body.error ?? `Could not add employee (${res.status})`);
+  }
+  return body as {
+    ok: true;
+    employee: { clockNumber: string; name: string };
+    employeeCount: number;
+  };
+}
+
 export async function verifyAdminKey(key: string) {
   setStoredAdminKey(key);
   try {

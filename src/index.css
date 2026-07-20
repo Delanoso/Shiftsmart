@@ -643,3 +643,32 @@ button:disabled {
   background: var(--bg);
   color: var(--text);
 }
+
+.section-title {
+  margin: 0 0 0.35rem;
+  font-size: 1rem;
+}
+
+.add-employee-form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.65rem;
+  align-items: end;
+}
+
+.add-employee-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.add-employee-form input {
+  padding: 0.55rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--bg);
+  color: var(--text);
+  font: inherit;
+}
