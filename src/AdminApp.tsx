@@ -1072,8 +1072,7 @@ export default function AdminApp() {
                 </button>
               </div>
               <p className="muted tiny">
-                Records admin roster changes, branding updates, and completed sessions. Rate limits
-                also protect the API from abuse.
+                Records admin roster changes, branding updates, and completed sessions.
               </p>
               {auditError ? <p className="error">{auditError}</p> : null}
               {auditLogs.length === 0 ? (

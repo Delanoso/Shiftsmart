@@ -41,7 +41,6 @@ import {
   markNotificationRead,
 } from './notifications.js';
 import { isAdminConfigured, requireAdmin } from './adminAuth.js';
-import { createRateLimiter } from './rateLimit.js';
 import { listAuditLogs, writeAuditLog } from './audit.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -100,25 +99,6 @@ app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json({ limit: '4mb' }));
 
-const apiLimiter = createRateLimiter({
-  windowMs: 60_000,
-  max: Number(process.env.RATE_LIMIT_API_MAX ?? 180),
-  message: 'Too many requests. Please wait a moment and try again.',
-});
-const sessionLimiter = createRateLimiter({
-  windowMs: 60_000,
-  max: Number(process.env.RATE_LIMIT_SESSION_MAX ?? 20),
-  message: 'Too many game submissions from this device. Please wait a minute.',
-});
-const adminLimiter = createRateLimiter({
-  windowMs: 60_000,
-  max: Number(process.env.RATE_LIMIT_ADMIN_MAX ?? 240),
-  message: 'Too many admin requests. Please wait a moment.',
-});
-
-app.use('/api', apiLimiter);
-app.use('/api/sessions', sessionLimiter);
-app.use('/api/admin', adminLimiter);
 app.get('/api/health', (_req, res) => {
   res.json({ ok: true, adminConfigured: isAdminConfigured() });
 });

@@ -98,7 +98,6 @@ Baselines are computed from stored sessions when a run finishes. On first startu
 - Filter notifications, sessions, and employees by **site / depot**
 - Branding + site list: admin **Settings** tab (company name is set by IT at install)
 - **Audit** tab logs roster/branding changes and completed sessions
-- API rate limits protect `/api`, game submissions, and admin routes (`RATE_LIMIT_*` env vars)
 
 ## Alert configuration
 
@@ -112,9 +111,6 @@ Set environment variables on the server:
 | `ALERT_MARGIN_MS` | Ms above personal baseline median to flag (default `150`) |
 | `ALERT_COMPANY_FACTOR` | Multiplier vs company median (default `1.35`) |
 | `POOR_REACTION_MS` | Single-click threshold (default `800`) |
-| `RATE_LIMIT_API_MAX` | Max `/api` requests per IP per minute (default `180`) |
-| `RATE_LIMIT_SESSION_MAX` | Max game submissions per IP per minute (default `20`) |
-| `RATE_LIMIT_ADMIN_MAX` | Max admin API requests per IP per minute (default `240`) |
 
 ## Game flow
 
