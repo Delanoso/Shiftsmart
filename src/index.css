@@ -9,7 +9,7 @@
   --accent-glow: rgba(59, 130, 246, 0.45);
   --danger: #f87171;
   --success: #4ade80;
-  --target: #f97316;
+  --target: #ef4444; /* Red bubbles for demo */
   --radius: 12px;
   font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
   line-height: 1.5;
@@ -288,12 +288,12 @@ button:disabled {
   /* Glossy, high-contrast “bubble” look */
   background:
     radial-gradient(circle at 30% 22%, rgba(255, 255, 255, 0.95) 0%, rgba(255, 255, 255, 0.25) 16%, rgba(255, 255, 255, 0) 42%),
-    radial-gradient(circle at 40% 35%, #fdba74 0%, var(--target) 54%, #9a3412 100%);
+    radial-gradient(circle at 40% 35%, #fca5a5 0%, var(--target) 54%, #7f1d1d 100%);
 
   box-shadow:
-    0 0 0 2px rgba(249, 115, 22, 0.55),
-    0 10px 28px rgba(249, 115, 22, 0.22),
-    0 0 30px rgba(249, 115, 22, 0.25);
+    0 0 0 2px rgba(239, 68, 68, 0.6),
+    0 10px 28px rgba(239, 68, 68, 0.22),
+    0 0 30px rgba(239, 68, 68, 0.25);
 
   /* Keep pseudo-elements visible (e.g. ring) */
   overflow: visible;
@@ -316,7 +316,7 @@ button:disabled {
   position: absolute;
   inset: -8px;
   border-radius: 50%;
-  border: 2px solid rgba(249, 115, 22, 0.55);
+  border: 2px solid rgba(239, 68, 68, 0.6);
   opacity: 0;
   pointer-events: none;
   animation: ring-pop 0.42s ease-out forwards;
