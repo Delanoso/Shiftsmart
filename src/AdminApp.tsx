@@ -490,10 +490,6 @@ export default function AdminApp() {
       {!authed ? (
         <main className="main card">
           <h2>Supervisor login</h2>
-          <p className="muted">
-            Enter the admin key set by IT (`ADMIN_API_KEY`). Opening the operator screen signs you
-            out. Default package key is <code>ADMIN-API-KEY</code> — change it before production.
-          </p>
           <form onSubmit={handleLogin} className="login-form">
             <label htmlFor="admin-key">Admin key</label>
             <input
